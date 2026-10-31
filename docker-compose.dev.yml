@@ -1,0 +1,31 @@
+# Local development: just the database, published on localhost:5432.
+# The app itself runs on the host (npm run start:dev / npm run dev) so you get
+# hot reload; only Postgres needs a container.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: binloves
+      POSTGRES_PASSWORD: binloves
+      POSTGRES_DB: binloves
+    ports:
+      # 55433, not 5432: a natively-installed Postgres commonly already owns
+      # 5432 on a developer machine, and it wins for localhost connections even
+      # when Docker also binds the port — producing confusing "role does not
+      # exist" errors against the wrong database. 55433 rather than 55432
+      # because the sibling shop's dev database already holds that one, and
+      # both are often up at the same time on this machine.
+      - '55433:5432'
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U binloves']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata_dev:

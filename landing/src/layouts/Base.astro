@@ -1,0 +1,99 @@
+---
+import { ClientRouter } from 'astro:transitions';
+// Self-hosted rather than fetched from a font CDN: one less connection to
+// open before the first heading can be painted. Both files carry the
+// Vietnamese subset.
+import '@fontsource-variable/lora';
+import '@fontsource-variable/inter';
+import '../styles/tokens.css';
+import '../styles/global.css';
+import '../styles/discreet.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import ContactDock from '../components/ContactDock.astro';
+import { getSnapshot } from '../lib/snapshot';
+import { asset } from '../lib/assets';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const { siteSettings, categories, contactChannels } = await getSnapshot();
+
+const shopName = siteSettings.shopName ?? 'Cửa hàng';
+const pageTitle = title ? `${title} · ${shopName}` : `${shopName}${siteSettings.tagline ? ` · ${siteSettings.tagline}` : ''}`;
+const pageDescription = description ?? siteSettings.seoDescription ?? siteSettings.tagline ?? '';
+
+// Astro.url is the request as this process receives it, and the platform's
+// proxy rewrites the host to "localhost" before forwarding. That was invisible
+// while the site was built ahead of time — the URL came from the config then,
+// not from a request. Astro.site is no help either: the config is read during
+// `astro build`, so whatever SITE_URL holds at runtime never reaches it.
+// Hence: the configured origin first, then the host the proxy says the visitor
+// actually asked for, and only then the request as received.
+const forwardedHost = Astro.request.headers.get('x-forwarded-host');
+const forwardedProto = Astro.request.headers.get('x-forwarded-proto') ?? 'https';
+const origin =
+  process.env.SITE_URL ??
+  (forwardedHost ? `${forwardedProto}://${forwardedHost}` : Astro.url.origin);
+const canonical = new URL(Astro.url.pathname, origin).href;
+---
+
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    {pageDescription && <meta name="description" content={pageDescription} />}
+    <meta name="theme-color" content="#e0e5ec" />
+    {/* The .ico carries 16/32/48 in one file, which is still the most
+        reliably handled favicon across browsers and bookmark bars. */}
+    <link rel="icon" href={asset('/favicon.ico')} sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href={asset('/favicon.png')} />
+    <link rel="apple-touch-icon" href={asset('/apple-touch-icon.png')} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={pageTitle} />
+    {pageDescription && <meta property="og:description" content={pageDescription} />}
+    <meta property="og:type" content="website" />
+    <ClientRouter />
+    {/* Applied before first paint: if discreet mode were set after hydration,
+        the visitor would see a flash of unblurred images — exactly the moment
+        the feature exists to prevent. */}
+    <script is:inline>
+      document.documentElement.dataset.discreet =
+        localStorage.getItem('discreet-mode') === 'on' ? 'on' : 'off';
+
+      // Media errors don't bubble, so this listens in the capture phase and
+      // catches every photo and clip on the page with one handler — including
+      // ones swapped in by view transitions.
+      document.addEventListener(
+        'error',
+        (event) => {
+          const target = event.target;
+          if (target instanceof HTMLImageElement || target instanceof HTMLVideoElement) {
+            target.closest('.media')?.classList.add('is-broken');
+          }
+        },
+        true,
+      );
+    </script>
+  </head>
+  <body>
+    <a href="#main" class="sr-only">Tới nội dung chính</a>
+    <Header shopName={shopName} categories={categories} contactChannels={contactChannels} />
+    <main id="main">
+      <slot />
+    </main>
+    <ContactDock contactChannels={contactChannels} />
+    <Footer
+      shopName={shopName}
+      tagline={siteSettings.tagline}
+      address={siteSettings.address}
+      businessHours={siteSettings.businessHours}
+      contactChannels={contactChannels}
+    />
+  </body>
+</html>

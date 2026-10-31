@@ -1,0 +1,633 @@
+---
+import Base from '../../layouts/Base.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import MediaFrame from '../../components/MediaFrame.astro';
+import { findChannel, priceDisplay, zaloLink } from '../../lib/format';
+import { getSnapshot } from '../../lib/snapshot';
+
+const { products, categories, contactChannels } = await getSnapshot();
+
+// Rendered on demand now, so the slug is looked up instead of enumerated.
+// A slug that no longer exists — a product the owner hid or deleted after
+// someone saved the link — gets the 404 page rather than a blank render.
+const product = products.find((p) => p.slug === Astro.params.slug);
+if (!product) return Astro.rewrite('/404');
+
+const zalo = findChannel(contactChannels, 'zalo');
+const category = categories.find((c) => c.id === product.categoryId);
+const { now, was, discount } = priceDisplay(product);
+
+const hasVariants = product.variants.length > 0;
+// Distinct values in the order the owner arranged the rows, so the chips read
+// the way the grid in the admin reads.
+const values1 = [...new Set(product.variants.map((v) => v.option1Value))];
+const values2 = product.option2Name
+  ? [...new Set(product.variants.map((v) => v.option2Value).filter((v): v is string => !!v))]
+  : [];
+
+// The photo standing for each value of whichever group carries them. Every url
+// here is also in product.media, so the picker below never has to do more than
+// scroll the gallery to a picture the page is already holding.
+const optionImages = new Map(product.optionImages.map((i) => [i.value, i.url]));
+const imageFor = (group: number, value: string) =>
+  product.optionImageGroup === group ? (optionImages.get(value) ?? null) : null;
+
+const related = products
+  .filter((p) => p.id !== product.id && p.categoryId === product.categoryId)
+  .slice(0, 4);
+
+// Pre-fills the chat with what the customer is looking at, so the shop owner
+// doesn't have to ask "bạn quan tâm sản phẩm nào?" on every single enquiry.
+// A product with options opens the chat without a price: until the customer
+// picks one there is only a range, and pasting a range into a message the shop
+// owner has to read back is worse than leaving it out. The script rewrites
+// this link with the chosen combination and its price the moment one is picked.
+const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
+  !hasVariants && now !== 'Liên hệ' ? ` (${now})` : ''
+}`;
+---
+
+<Base title={product.name} description={product.description ?? undefined}>
+  <article class="shell product">
+    <nav class="crumbs" aria-label="Đường dẫn">
+      <a href="/">Trang chủ</a>
+      <span aria-hidden="true">/</span>
+      {
+        category && (
+          <>
+            <a href={`/danh-muc/${category.slug}`}>{category.name}</a>
+            <span aria-hidden="true">/</span>
+          </>
+        )
+      }
+      <span aria-current="page">{product.name}</span>
+    </nav>
+
+    <div class="layout">
+      <div class="gallery">
+        {
+          product.media.length > 0 ? (
+            product.media.map((item, index) => {
+              const noun = item.mediaType === 'video' ? 'video' : 'ảnh';
+              return (
+                <div class="media gallery-item" data-media-url={item.url}>
+                  <MediaFrame
+                    item={item}
+                    alt={`${product.name} — ${noun} ${index + 1}`}
+                    width={800}
+                    height={800}
+                    eager={index === 0}
+                    behaviour="full"
+                  />
+                  <button type="button" class="reveal-btn" aria-label={`Xem ${noun}`}>
+                    Xem {noun}
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div class="media gallery-item">
+              <div class="placeholder" aria-hidden="true" />
+            </div>
+          )
+        }
+      </div>
+
+      <div class="info">
+        <div class="info-sticky">
+          {category && <p class="eyebrow">{category.name}</p>}
+          <h1>{product.name}</h1>
+
+          <p class="price">
+            <span class="now" data-price-now>{now === 'Liên hệ' ? 'Liên hệ để biết giá' : now}</span>
+            <s class="was" data-price-was hidden={!was}>{was}</s>
+            <span class="badge" data-price-off hidden={discount === null}>-{discount}%</span>
+          </p>
+
+          {
+            hasVariants && (
+              <div
+                class="options"
+                data-variants
+                data-product-name={product.name}
+                data-enquiry-base={enquiry}
+                data-image-group={product.optionImageGroup ?? undefined}
+              >
+                <div class="option-group">
+                  <p class="option-name">{product.option1Name}</p>
+                  <div class="chips">
+                    {values1.map((value) => {
+                      const thumb = imageFor(1, value);
+                      return (
+                        <button
+                          type="button"
+                          class="chip"
+                          data-group="1"
+                          data-value={value}
+                          data-image={thumb ?? undefined}
+                        >
+                          {thumb && <img class="chip__thumb" src={thumb} alt="" loading="lazy" />}
+                          {value}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {values2.length > 0 && (
+                  <div class="option-group">
+                    <p class="option-name">{product.option2Name}</p>
+                    <div class="chips">
+                      {values2.map((value) => {
+                        const thumb = imageFor(2, value);
+                        return (
+                          <button
+                            type="button"
+                            class="chip"
+                            data-group="2"
+                            data-value={value}
+                            data-image={thumb ?? undefined}
+                          >
+                            {thumb && <img class="chip__thumb" src={thumb} alt="" loading="lazy" />}
+                            {value}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <script
+                  type="application/json"
+                  data-variant-rows
+                  set:html={JSON.stringify(product.variants).replace(/</g, '\\u003c')}
+                />
+              </div>
+            )
+          }
+
+          <p class="stock" data-stock hidden={!product.stockLabel}>{product.stockLabel}</p>
+
+          {
+            zalo ? (
+              <a
+                class="btn btn-zalo cta"
+                href={zaloLink(zalo, enquiry)}
+                data-cta
+                data-zalo-base={zaloLink(zalo)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Nhắn Zalo để đặt sản phẩm này
+              </a>
+            ) : (
+              <p class="no-channel">Shop chưa cập nhật kênh liên hệ.</p>
+            )
+          }
+
+          <ul class="assurances">
+            <li>Nhắn tin riêng tư, shop tư vấn trực tiếp</li>
+            <li>Hộp không in tên sản phẩm</li>
+          </ul>
+
+          {
+            product.description && (
+              <div class="description">
+                <h2 class="desc-title">Mô tả</h2>
+                {product.description.split('\n').filter(Boolean).map((line) => (
+                  <p>{line}</p>
+                ))}
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </article>
+
+  {
+    related.length > 0 && (
+      <section class="shell related">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Cùng danh mục</p>
+            <h2 class="section-title">Có thể bạn quan tâm</h2>
+          </div>
+        </div>
+        <div class="grid-products">
+          {related.map((p) => (
+            <ProductCard product={p} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</Base>
+
+<script>
+  interface Row {
+    option1Value: string;
+    option2Value: string | null;
+    price: number | null;
+    salePrice: number | null;
+    stockLabel: string | null;
+  }
+
+  const money = new Intl.NumberFormat('vi-VN');
+  const format = (value: number) => `${money.format(value)}đ`;
+
+  function range(values: number[]): string | null {
+    if (!values.length) return null;
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    return low === high ? format(low) : `${format(low)} - ${format(high)}`;
+  }
+
+  // Deliberately the same reading as lib/format.ts, because the first paint is
+  // server-rendered and every later one happens here: if the two disagreed the
+  // price would flicker on load for every visitor.
+  function bind() {
+    const root = document.querySelector<HTMLElement>('[data-variants]');
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = 'true';
+
+    const rows: Row[] = JSON.parse(root.querySelector('[data-variant-rows]')!.textContent!);
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('.chip')];
+    const nowEl = document.querySelector<HTMLElement>('[data-price-now]')!;
+    const wasEl = document.querySelector<HTMLElement>('[data-price-was]')!;
+    const offEl = document.querySelector<HTMLElement>('[data-price-off]')!;
+    const stockEl = document.querySelector<HTMLElement>('[data-stock]')!;
+    const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
+    const galleryItems = [...document.querySelectorAll<HTMLElement>('.gallery-item[data-media-url]')];
+    // '1', '2', or absent when no group carries photos.
+    const imageGroup = root.dataset.imageGroup ?? null;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The product's own label, shown until a single combination is in play.
+    const fallbackStock = stockEl.textContent?.trim() ?? '';
+
+    const picked: Record<string, string | null> = { '1': null, '2': null };
+
+    /** `ignore` leaves one axis out, to ask what the other axis still allows. */
+    const matches = (row: Row, ignore?: string) =>
+      (ignore === '1' || picked['1'] === null || row.option1Value === picked['1']) &&
+      (ignore === '2' || picked['2'] === null || row.option2Value === picked['2']);
+
+    function render() {
+      const shown = rows.filter((row) => matches(row));
+      const payable = shown
+        .map((row) => row.salePrice ?? row.price)
+        .filter((value): value is number => value !== null);
+      const cut = shown.filter(
+        (row) => row.salePrice !== null && row.price !== null && row.salePrice < row.price,
+      );
+
+      const now = range(payable);
+      const was = cut.length
+        ? range(shown.map((row) => row.price).filter((value): value is number => value !== null))
+        : null;
+      const showWas = was !== null && was !== now;
+      const off = cut.length
+        ? Math.max(...cut.map((row) => Math.round((1 - row.salePrice! / row.price!) * 100)))
+        : null;
+
+      nowEl.textContent = now ?? 'Liên hệ để biết giá';
+      wasEl.textContent = showWas ? was : '';
+      wasEl.hidden = !showWas;
+      offEl.textContent = off === null ? '' : `-${off}%`;
+      offEl.hidden = off === null;
+
+      // A per-combination stock note only means anything once exactly one
+      // combination is left; before that the product's own label stands.
+      const label = shown.length === 1 ? (shown[0].stockLabel ?? fallbackStock) : fallbackStock;
+      stockEl.textContent = label;
+      stockEl.hidden = !label;
+
+      for (const chip of chips) {
+        const group = chip.dataset.group!;
+        const value = chip.dataset.value!;
+        const on = picked[group] === value;
+        chip.classList.toggle('is-on', on);
+        chip.setAttribute('aria-pressed', String(on));
+        // Greyed out when nothing in stock pairs it with the other choice —
+        // never the chip that is currently selected, or picking it would make
+        // its own way back impossible.
+        const reachable = rows.some(
+          (row) => (group === '1' ? row.option1Value : row.option2Value) === value && matches(row, group),
+        );
+        chip.disabled = !reachable && !on;
+      }
+
+      if (cta) {
+        const chosen = [picked['1'], picked['2']].filter(Boolean).join(' / ');
+        const withPrice = shown.length === 1 && now ? ` (${now})` : '';
+        const message = `${root.dataset.enquiryBase}${chosen ? ` — ${chosen}` : ''}${withPrice}`;
+        const base = cta.dataset.zaloBase!;
+        cta.href = `${base}${base.includes('?') ? '&' : '?'}text=${encodeURIComponent(message)}`;
+      }
+    }
+
+    /**
+     * Brings the photo that stands for the chosen value into view.
+     *
+     * Scrolls rather than rearranges. On a phone the gallery is a snapping
+     * horizontal carousel sitting directly above these chips; on a desktop it
+     * is a column beside a sticky panel. One scrollIntoView does the right
+     * thing in both, and neither layout shifts under a finger that is already
+     * on the page — moving the picture to the front would reflow the column
+     * and push whatever the visitor was reading.
+     *
+     * Only ever called from a click. Running it on first paint would scroll
+     * the page before the visitor had touched anything.
+     */
+    function showPhotoFor(group: string, value: string | null) {
+      if (group !== imageGroup || value === null) return;
+      const chip = chips.find((c) => c.dataset.group === group && c.dataset.value === value);
+      const url = chip?.dataset.image;
+      if (!url) return;
+      const item = galleryItems.find((el) => el.dataset.mediaUrl === url);
+      item?.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        const group = chip.dataset.group!;
+        picked[group] = picked[group] === chip.dataset.value ? null : chip.dataset.value!;
+        render();
+        showPhotoFor(group, picked[group]);
+      });
+    }
+
+    render();
+  }
+
+  bind();
+  document.addEventListener('astro:after-swap', bind);
+</script>
+
+<style>
+  .product {
+    padding-block: var(--space-6) var(--space-7);
+  }
+
+  .crumbs {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    margin-bottom: var(--space-5);
+  }
+
+  .crumbs a:hover {
+    color: var(--indigo);
+  }
+
+  .crumbs [aria-current='page'] {
+    color: var(--text-soft);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: var(--space-7);
+    align-items: start;
+  }
+
+  .gallery {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .gallery-item {
+    aspect-ratio: 1;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+  }
+
+  .placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--card), var(--well));
+  }
+
+  .info-sticky {
+    position: sticky;
+    top: 120px;
+  }
+
+  .info h1 {
+    font-size: var(--text-3xl);
+    margin-block: var(--space-2) var(--space-4);
+  }
+
+  .price {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-2);
+  }
+
+  .now {
+    color: var(--indigo);
+    font-size: var(--text-2xl);
+    font-weight: 600;
+  }
+
+  .was {
+    color: var(--text-dim);
+  }
+
+  .badge {
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--indigo-wash);
+    color: var(--indigo);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+
+  .stock {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-5);
+  }
+
+  .cta {
+    width: 100%;
+    padding-block: var(--space-4);
+    font-size: var(--text-base);
+  }
+
+  .no-channel {
+    color: var(--text-dim);
+    font-size: var(--text-sm);
+  }
+
+  .assurances {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+    margin-block: var(--space-4) var(--space-6);
+  }
+
+  .assurances li {
+    position: relative;
+    padding-inline-start: var(--space-5);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+  }
+
+  .assurances li::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 0.6em;
+    width: 8px;
+    height: 2px;
+    background: var(--calm);
+  }
+
+  .description {
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-5);
+    display: grid;
+    gap: var(--space-3);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+  }
+
+  .desc-title {
+    font-size: var(--text-lg);
+    color: var(--text);
+  }
+
+  .related {
+    padding-block: var(--space-6);
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+
+    .info-sticky {
+      position: static;
+    }
+
+    /*
+      Stacked full-width images would push the Zalo button — the only
+      conversion point on this page — below three screens of scrolling on a
+      phone, which is how most of this shop's customers browse. Swiping
+      sideways keeps the gallery to one screen so the button sits just under
+      it. The peek of the next image is what signals it can be swiped.
+    */
+    .gallery {
+      grid-auto-flow: column;
+      grid-auto-columns: 88%;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      margin-inline: calc(var(--space-5) * -1);
+      padding-inline: var(--space-5);
+    }
+
+    .gallery::-webkit-scrollbar {
+      display: none;
+    }
+
+    .gallery-item {
+      scroll-snap-align: center;
+    }
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-block: var(--space-4);
+  }
+
+  .option-name {
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    margin-bottom: var(--space-2);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Sized for a thumb before anything else: this is the one control on the
+     page a customer actually operates, and most of them are on a phone. */
+  .chip {
+    /* Flex, not inline text: the stylesheet renders every img as a block, so
+       a swatch left inline stacks above the label and doubles the chip's
+       height. */
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition:
+      border-color 0.2s var(--ease),
+      color 0.2s var(--ease);
+  }
+
+  .chip:hover:not(:disabled) {
+    border-color: var(--indigo);
+  }
+
+  /*
+    The swatch. Small enough that the chip is still a chip, big enough that a
+    colour reads at arm's length on a phone.
+  */
+  .chip__thumb {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border-radius: calc(var(--radius) / 2);
+    object-fit: cover;
+  }
+
+  /*
+    Hidden outright with discreet mode on, not blurred like the gallery is.
+    At 24px the blur the gallery uses is an unreadable smudge that still takes
+    up the row — and the point of the mode is that product photos do not
+    appear until the visitor asks. The chip falls back to its name, and the
+    gallery below is still there to be revealed deliberately.
+  */
+  :root[data-discreet='on'] .chip__thumb {
+    display: none;
+  }
+
+  .chip.is-on {
+    border-color: var(--indigo);
+    color: var(--indigo);
+    font-weight: 600;
+  }
+
+  /* Struck through rather than merely dimmed: on a dark palette a lowered
+     opacity reads as "still loading", and the customer needs to know this
+     combination is simply not sold. */
+  .chip:disabled {
+    cursor: not-allowed;
+    color: var(--text-dim);
+    border-color: var(--line);
+    text-decoration: line-through;
+  }
+</style>

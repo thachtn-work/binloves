@@ -1,0 +1,156 @@
+---
+import type { MediaItem } from '../lib/snapshot';
+
+interface Props {
+  item: MediaItem;
+  /** Describes the product, not the file — read aloud for both kinds. */
+  alt: string;
+  width: number;
+  height: number;
+  /** Eager-load only what is above the fold. */
+  eager?: boolean;
+  /**
+   * How a video behaves here. Images ignore it.
+   *
+   * `cover`  — in a grid of cards. Shows its first frame and plays only while
+   *            the pointer rests on it, so a page of forty products does not
+   *            pull forty video streams over someone's mobile data.
+   * `full`   — on the product page. Native controls, never starts by itself,
+   *            and muted until the visitor turns sound on: this shop is
+   *            browsed in public, and a clip that announces itself out loud
+   *            undoes the whole point of the discreet mode beside it.
+   * `banner` — the hero. Autoplays on loop, muted, handled by the script below.
+   */
+  behaviour?: 'cover' | 'full' | 'banner';
+}
+
+const { item, alt, width, height, eager = false, behaviour = 'cover' } = Astro.props;
+
+const isVideo = item.mediaType === 'video';
+
+/*
+  A video has no still of its own. `preload="metadata"` fetches the duration
+  and paints nothing, which is indistinguishable from a failed upload — so the
+  media fragment asks the browser to seek to the first frame and show that
+  instead. Nothing here preloads the whole file, the banner included: with
+  discreet mode on it would never play, and the data would have been spent on
+  the visitor's phone plan for nothing.
+*/
+const src = isVideo ? `${item.url}#t=0.1` : item.url;
+---
+
+{
+  isVideo ? (
+    <video
+      class="media-el"
+      data-video={behaviour}
+      src={src}
+      width={width}
+      height={height}
+      muted
+      playsinline
+      loop={behaviour === 'banner'}
+      controls={behaviour === 'full'}
+      preload="metadata"
+      aria-label={alt}
+    />
+  ) : (
+    <img
+      class="media-el"
+      src={item.url}
+      alt={alt}
+      width={width}
+      height={height}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+    />
+  )
+}
+
+{
+  /* The badge marks a clip as a clip. Omitted where the player already says so
+     with its own controls. */
+  isVideo && behaviour !== 'full' && <span class="media-play" aria-hidden="true" />
+}
+
+<script>
+  /*
+    Delegated rather than bound per element: cards are swapped in by view
+    transitions, and a listener attached at render time would be lost with the
+    node it was attached to.
+  */
+  const canHover = window.matchMedia('(hover: hover)').matches;
+  const stillsOnly = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function coverVideo(target: EventTarget | null): HTMLVideoElement | null {
+    if (!(target instanceof Element)) return null;
+    return target.closest('.media')?.querySelector<HTMLVideoElement>('video[data-video="cover"]') ?? null;
+  }
+
+  if (canHover && !stillsOnly) {
+    document.addEventListener('mouseover', (event) => {
+      void coverVideo(event.target)?.play().catch(() => {
+        /* Autoplay policy or a missing file: the still frame stays, which is
+           the same thing the visitor saw a moment ago. */
+      });
+    });
+
+    document.addEventListener('mouseout', (event) => {
+      const media = event.target instanceof Element ? event.target.closest('.media') : null;
+      // Moving between a card's own children is not leaving the card.
+      const to = event.relatedTarget;
+      if (media && to instanceof Node && media.contains(to)) return;
+      const video = coverVideo(event.target);
+      if (!video) return;
+      video.pause();
+      video.currentTime = 0.1;
+    });
+  }
+
+  /*
+    Banner clips play on their own, but only when all three are true: discreet
+    mode is off, the slide is the one on screen, and the visitor has not asked
+    for less motion. Blur alone is not enough in discreet mode — something
+    moving behind it still catches the eye of whoever is sitting next to them,
+    which is the whole thing the mode exists to prevent.
+  */
+  function bannerShouldPlay(video: HTMLVideoElement): boolean {
+    if (stillsOnly) return false;
+    const media = video.closest('.media');
+    if (!media) return false;
+    const discreet = document.documentElement.dataset.discreet === 'on';
+    if (discreet && !media.classList.contains('is-revealed')) return false;
+    return video.closest('[data-slide]')?.getAttribute('aria-hidden') !== 'true';
+  }
+
+  function syncBanners() {
+    document.querySelectorAll<HTMLVideoElement>('video[data-video="banner"]').forEach((video) => {
+      if (bannerShouldPlay(video)) void video.play().catch(() => {});
+      else video.pause();
+    });
+  }
+
+  function watchCarousels() {
+    document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((root) => {
+      if (root.dataset.videoBound) return;
+      root.dataset.videoBound = 'true';
+      // The carousel marks the current slide with aria-hidden and the reveal
+      // button adds .is-revealed; watching the attributes keeps the two
+      // scripts from having to know about each other.
+      new MutationObserver(syncBanners).observe(root, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-hidden', 'class'],
+      });
+    });
+  }
+
+  function init() {
+    watchCarousels();
+    syncBanners();
+  }
+
+  init();
+  document.addEventListener('discreet:change', syncBanners);
+  document.addEventListener('astro:after-swap', init);
+</script>

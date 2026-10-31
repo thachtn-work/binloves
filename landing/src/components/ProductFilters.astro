@@ -1,0 +1,369 @@
+---
+interface Props {
+  /** How many products the page rendered, for the "showing N of M" line. */
+  total: number;
+  /** Adds the keyword box. Only the search page wants it. */
+  searchable?: boolean;
+}
+
+const { total, searchable = false } = Astro.props;
+
+/*
+  One script owns every filter on the page.
+
+  The search page used to hide cards with its own listener; adding a second
+  one for price would have meant two pieces of code setting `hidden` on the
+  same elements and each undoing the other's work. Term, price range and sort
+  are three inputs to a single pass instead.
+
+  Everything is already in the page — the site is static and every product is
+  rendered server-side — so this reorders and hides what is there rather than
+  fetching anything. Results change as you type, with no loading state to
+  design around and nothing to break if the script never runs: without it the
+  full list is simply shown, which is the honest fallback.
+*/
+
+/*
+  Buckets picked from the shop's actual catalogue rather than round numbers
+  for their own sake: the prices run from 60.000đ to 37 triệu with a median
+  near 390.000đ, so these four cut it into groups of roughly 35 / 30 / 10 / 27.
+*/
+const BUCKETS = [
+  { label: 'Dưới 300k', min: '', max: '300000' },
+  { label: '300k – 600k', min: '300000', max: '600000' },
+  { label: '600k – 1tr', min: '600000', max: '1000000' },
+  { label: 'Trên 1tr', min: '1000000', max: '' },
+];
+---
+
+<div class="tools" data-tools>
+  {
+    searchable && (
+      <form class="tools-search" role="search" data-search-form>
+        <label for="search-input" class="sr-only">
+          Từ khoá
+        </label>
+        <input
+          type="search"
+          id="search-input"
+          name="q"
+          placeholder="Nhập tên sản phẩm…"
+          autocomplete="off"
+          data-search-input
+        />
+      </form>
+    )
+  }
+
+  <div class="tools-row">
+    <div class="tools-group">
+      <label class="tools-label" for="sort-by">Sắp xếp</label>
+      <select id="sort-by" class="tools-select" data-sort>
+        <option value="default">Mặc định</option>
+        <option value="asc">Giá thấp → cao</option>
+        <option value="desc">Giá cao → thấp</option>
+      </select>
+    </div>
+
+    <div class="tools-group">
+      <span class="tools-label" id="price-label">Khoảng giá</span>
+      <div class="tools-range" role="group" aria-labelledby="price-label">
+        <input
+          type="text"
+          inputmode="numeric"
+          class="tools-price"
+          placeholder="Từ"
+          aria-label="Giá từ"
+          data-min
+        />
+        <span class="tools-dash" aria-hidden="true">–</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="tools-price"
+          placeholder="Đến"
+          aria-label="Giá đến"
+          data-max
+        />
+      </div>
+    </div>
+
+    <div class="tools-buckets" role="group" aria-label="Khoảng giá nhanh">
+      {
+        BUCKETS.map((b) => (
+          <button type="button" class="bucket" data-bucket data-min-value={b.min} data-max-value={b.max}>
+            {b.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <button type="button" class="tools-clear" data-clear hidden>Xoá lọc</button>
+  </div>
+
+  <p class="tools-count" data-count aria-live="polite">{total} sản phẩm</p>
+</div>
+
+<style>
+  .tools {
+    display: grid;
+    gap: var(--space-3);
+    padding-block: var(--space-4);
+    border-block: 1px solid var(--line);
+    margin-bottom: var(--space-5);
+  }
+
+  .tools-search input {
+    width: 100%;
+    height: 46px;
+    padding-inline: var(--space-4);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-pill);
+    background: var(--card);
+    color: var(--text);
+    font-size: var(--text-base);
+  }
+
+  .tools-search input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .tools-search input:focus-visible,
+  .tools-select:focus-visible,
+  .tools-price:focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  .tools-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3) var(--space-5);
+  }
+
+  .tools-group {
+    display: grid;
+    gap: 4px;
+  }
+
+  .tools-label {
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+  }
+
+  .tools-select,
+  .tools-price {
+    height: 38px;
+    padding-inline: var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    color: var(--text);
+    font-size: var(--text-sm);
+  }
+
+  .tools-range {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .tools-price {
+    width: 108px;
+  }
+
+  .tools-dash {
+    color: var(--text-dim);
+  }
+
+  .tools-buckets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .bucket {
+    padding: 7px var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--text-soft);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+  }
+
+  .bucket:hover {
+    color: var(--text);
+  }
+
+  .bucket.is-on {
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: var(--paper);
+    font-weight: 600;
+  }
+
+  .tools-clear {
+    background: none;
+    border: none;
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    height: 38px;
+  }
+
+  .tools-clear:hover {
+    color: var(--indigo);
+  }
+
+  .tools-count {
+    color: var(--text-dim);
+    font-size: var(--text-sm);
+  }
+
+  @media (max-width: 640px) {
+    .tools-row {
+      gap: var(--space-3);
+    }
+
+    .tools-price {
+      width: 92px;
+    }
+  }
+</style>
+
+<script>
+  function normalize(value: string) {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd');
+  }
+
+  /** "300.000", "300000đ" and "300k" all mean the same thing to a shopper. */
+  function parsePrice(raw: string): number | null {
+    const text = raw.trim().toLowerCase();
+    if (!text) return null;
+    const shorthand = text.match(/^([\d.,]+)\s*(k|tr|m)$/);
+    const digits = Number((shorthand ? shorthand[1] : text).replace(/[^\d]/g, ''));
+    if (!Number.isFinite(digits) || digits === 0) return null;
+    if (!shorthand) return digits;
+    return shorthand[2] === 'k' ? digits * 1_000 : digits * 1_000_000;
+  }
+
+  function initTools() {
+    const tools = document.querySelector<HTMLElement>('[data-tools]');
+    const grid = document.querySelector<HTMLElement>('[data-results]');
+    if (!tools || !grid || tools.dataset.bound) return;
+    tools.dataset.bound = 'true';
+
+    const items = Array.from(grid.querySelectorAll<HTMLElement>('[data-item]'));
+    const sortEl = tools.querySelector<HTMLSelectElement>('[data-sort]');
+    const minEl = tools.querySelector<HTMLInputElement>('[data-min]');
+    const maxEl = tools.querySelector<HTMLInputElement>('[data-max]');
+    const searchEl = tools.querySelector<HTMLInputElement>('[data-search-input]');
+    const countEl = tools.querySelector<HTMLElement>('[data-count]');
+    const clearEl = tools.querySelector<HTMLButtonElement>('[data-clear]');
+    const buckets = Array.from(tools.querySelectorAll<HTMLButtonElement>('[data-bucket]'));
+    const noResults = document.querySelector<HTMLElement>('[data-no-results]');
+    if (items.length === 0) return;
+
+    // Remembered once: "Mặc định" means the order the shop arranged, which is
+    // the order they were rendered in.
+    items.forEach((item, index) => {
+      item.dataset.home = String(index);
+    });
+
+    function run() {
+      const min = parsePrice(minEl?.value ?? '');
+      const max = parsePrice(maxEl?.value ?? '');
+      const term = normalize(searchEl?.value.trim() ?? '');
+      const sort = sortEl?.value ?? 'default';
+
+      const visible: HTMLElement[] = [];
+      for (const item of items) {
+        const raw = item.dataset.price;
+        const price = raw ? Number(raw) : null;
+
+        // A product with no price cannot be judged against a range, so asking
+        // for one excludes it rather than guessing it belongs.
+        const inRange =
+          (min === null && max === null) ||
+          (price !== null && (min === null || price >= min) && (max === null || price <= max));
+        const matches = term === '' || (item.dataset.haystack ?? '').includes(term);
+
+        const show = inRange && matches;
+        item.hidden = !show;
+        if (show) visible.push(item);
+      }
+
+      if (sort === 'default') {
+        for (const item of items) item.style.order = item.dataset.home ?? '0';
+      } else {
+        const ranked = [...visible].sort((a, b) => {
+          const pa = a.dataset.price ? Number(a.dataset.price) : null;
+          const pb = b.dataset.price ? Number(b.dataset.price) : null;
+          // Priceless items sink to the bottom whichever way the list is sorted.
+          if (pa === null) return pb === null ? 0 : 1;
+          if (pb === null) return -1;
+          return sort === 'asc' ? pa - pb : pb - pa;
+        });
+        ranked.forEach((item, index) => {
+          item.style.order = String(index);
+        });
+      }
+
+      const filtering = min !== null || max !== null || term !== '';
+      if (countEl) {
+        countEl.textContent = filtering
+          ? `${visible.length} / ${items.length} sản phẩm`
+          : `${items.length} sản phẩm`;
+      }
+      if (clearEl) clearEl.hidden = !filtering && sort === 'default';
+      if (noResults) noResults.hidden = visible.length !== 0;
+
+      for (const b of buckets) {
+        const on = (b.dataset.minValue ?? '') === (minEl?.value ?? '')
+          && (b.dataset.maxValue ?? '') === (maxEl?.value ?? '');
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+      }
+    }
+
+    sortEl?.addEventListener('change', run);
+    minEl?.addEventListener('input', run);
+    maxEl?.addEventListener('input', run);
+    searchEl?.addEventListener('input', run);
+    tools.querySelector('[data-search-form]')?.addEventListener('submit', (e) => e.preventDefault());
+
+    for (const b of buckets) {
+      b.addEventListener('click', () => {
+        const already = b.classList.contains('is-on');
+        if (minEl) minEl.value = already ? '' : (b.dataset.minValue ?? '');
+        if (maxEl) maxEl.value = already ? '' : (b.dataset.maxValue ?? '');
+        run();
+      });
+    }
+
+    clearEl?.addEventListener('click', () => {
+      if (minEl) minEl.value = '';
+      if (maxEl) maxEl.value = '';
+      if (searchEl) searchEl.value = '';
+      if (sortEl) sortEl.value = 'default';
+      run();
+    });
+
+    // Deep links from the header search box land here with ?q=...
+    const initial = new URLSearchParams(window.location.search).get('q') ?? '';
+    if (initial && searchEl) searchEl.value = initial;
+    run();
+  }
+
+  initTools();
+  document.addEventListener('astro:after-swap', initTools);
+</script>

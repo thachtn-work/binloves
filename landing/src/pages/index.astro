@@ -1,0 +1,143 @@
+---
+import Base from '../layouts/Base.astro';
+import BannerCarousel from '../components/BannerCarousel.astro';
+import CircleNav from '../components/CircleNav.astro';
+import ProductCard from '../components/ProductCard.astro';
+import { getSnapshot, productsOf } from '../lib/snapshot';
+
+const { banners, categories, collections, products, siteSettings } = await getSnapshot();
+
+const shelves = collections
+  .map((collection) => ({ collection, items: productsOf(collection, products) }))
+  .filter(({ items }) => items.length > 0);
+
+// Only used when the shop has no collections set up yet, so a fresh install
+// still shows the catalogue instead of an empty page.
+const fallbackProducts = shelves.length === 0 ? products.slice(0, 12) : [];
+---
+
+<Base>
+  {/*
+    The order the shop already runs on: artwork, then what the shop is, then
+    where to go, then what is for sale. It was arrived at with customers
+    rather than designed, and the brief was to keep it.
+  */}
+  {
+    banners.length > 0 && (
+      <section class="hero">
+        <BannerCarousel banners={banners} variant="hero" />
+      </section>
+    )
+  }
+
+  {
+    siteSettings.seoDescription && (
+      <section class="shell intro">
+        <p>{siteSettings.seoDescription}</p>
+      </section>
+    )
+  }
+
+  <CircleNav items={categories} base="/danh-muc" title="Danh mục sản phẩm" />
+
+  {
+    shelves.map(({ collection, items }) => (
+      <section class="shell shelf">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">{collection.name}</h2>
+            {collection.description && <p class="shelf-desc">{collection.description}</p>}
+          </div>
+          <a class="link-more" href={`/bo-suu-tap/${collection.slug}`}>
+            Xem tất cả ({items.length})
+          </a>
+        </div>
+
+        <div class="grid-products">
+          {items.slice(0, 8).map((product, i) => (
+            <ProductCard product={product} priority={i < 4} />
+          ))}
+        </div>
+      </section>
+    ))
+  }
+
+  {
+    fallbackProducts.length > 0 && (
+      <section class="shell shelf">
+        <div class="section-head">
+          <h2 class="section-title">Sản phẩm</h2>
+        </div>
+        <div class="grid-products">
+          {fallbackProducts.map((product, i) => (
+            <ProductCard product={product} priority={i < 4} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    products.length === 0 && (
+      <section class="shell shelf">
+        <div class="empty-state">
+          <strong>Cửa hàng đang cập nhật sản phẩm</strong>
+          <p>Vui lòng quay lại sau, hoặc nhắn Zalo để được tư vấn trực tiếp.</p>
+        </div>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  /*
+    Edge to edge and 16:9, the proportion the shop's banner artwork is cut to.
+    Giving it a ratio rather than a height means the first paint already knows
+    how tall it is, so nothing below it jumps when the photo arrives.
+
+    Nothing caps the height, and nothing may: all three of the shop's banners
+    are 16:9 with their message set into the artwork near the top, so any
+    vertical crop cuts the sentence in half. The ratio is the artwork's, and
+    the frame follows it rather than the other way round.
+
+    `width: 100%` is load-bearing, not tidiness. Without it the width is
+    indefinite, and anything that clamps the height — a `max-height`, a short
+    window — lets the ratio drag the *width* down to match, ending the banner
+    two thirds across the page with the ground showing beside it.
+  */
+  .hero {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--well);
+  }
+
+  .intro {
+    padding-block: var(--space-6);
+    text-align: center;
+  }
+
+  .intro p {
+    margin-inline: auto;
+    max-width: 68ch;
+    color: var(--text-soft);
+    font-size: var(--text-lg);
+    line-height: 1.6;
+  }
+
+  .shelf {
+    padding-block: var(--space-6);
+  }
+
+  .shelf-desc {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    margin-top: var(--space-2);
+    max-width: 60ch;
+  }
+
+  @media (max-width: 760px) {
+    .intro p {
+      font-size: var(--text-base);
+    }
+  }
+</style>

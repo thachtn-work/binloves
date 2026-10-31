@@ -1,0 +1,59 @@
+---
+import Base from '../../layouts/Base.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import { getSnapshot, productsInCategory } from '../../lib/snapshot';
+import ProductFilters from '../../components/ProductFilters.astro';
+
+const { categories, products } = await getSnapshot();
+
+const category = categories.find((c) => c.slug === Astro.params.slug);
+if (!category) return Astro.rewrite('/404');
+
+const items = productsInCategory(category.id, products);
+---
+
+<Base title={category.name}>
+  <section class="shell listing">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Danh mục</p>
+        <h1 class="section-title">{category.name}</h1>
+      </div>
+    </div>
+
+    {
+      items.length > 0 ? (
+        <>
+          <ProductFilters total={items.length} />
+          <div class="grid-products" data-results>
+            {items.map((product, i) => (
+              <div data-item data-price={product.salePrice ?? product.price ?? ''}>
+                <ProductCard product={product} priority={i < 4} />
+              </div>
+            ))}
+          </div>
+          <div class="empty-state" data-no-results hidden>
+            <strong>Không có sản phẩm nào trong khoảng giá này</strong>
+            <p>Thử nới khoảng giá hoặc bỏ lọc để xem lại toàn bộ danh mục.</p>
+          </div>
+        </>
+      ) : (
+        <div class="empty-state">
+          <strong>Chưa có sản phẩm trong danh mục này</strong>
+          <p>Shop đang cập nhật thêm. Bạn có thể xem các danh mục khác ở thanh trên.</p>
+        </div>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .listing {
+    padding-block: var(--space-7);
+  }
+
+  .count {
+    color: var(--text-dim);
+    font-size: var(--text-sm);
+  }
+</style>

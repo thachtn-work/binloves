@@ -1,0 +1,67 @@
+---
+import Base from '../../layouts/Base.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import ProductFilters from '../../components/ProductFilters.astro';
+import { getSnapshot, productsOf } from '../../lib/snapshot';
+
+const { collections, products } = await getSnapshot();
+
+const collection = collections.find((c) => c.slug === Astro.params.slug);
+if (!collection) return Astro.rewrite('/404');
+
+const items = productsOf(collection, products);
+---
+
+<Base title={collection.name} description={collection.description ?? undefined}>
+  <section class="shell listing">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Bộ sưu tập</p>
+        <h1 class="section-title">{collection.name}</h1>
+        {collection.description && <p class="desc">{collection.description}</p>}
+      </div>
+    </div>
+
+    {
+      items.length > 0 ? (
+        <>
+          <ProductFilters total={items.length} />
+          <div class="grid-products" data-results>
+            {items.map((product, i) => (
+              <div data-item data-price={product.salePrice ?? product.price ?? ''}>
+                <ProductCard product={product} priority={i < 4} />
+              </div>
+            ))}
+          </div>
+          <div class="empty-state" data-no-results hidden>
+            <strong>Không có sản phẩm nào trong khoảng giá này</strong>
+            <p>Thử nới khoảng giá hoặc bỏ lọc để xem lại cả bộ sưu tập.</p>
+          </div>
+        </>
+      ) : (
+        <div class="empty-state">
+          <strong>Bộ sưu tập đang được cập nhật</strong>
+          <p>Shop sẽ bổ sung sản phẩm sớm.</p>
+        </div>
+      )
+    }
+  </section>
+</Base>
+
+<style>
+  .listing {
+    padding-block: var(--space-7);
+  }
+
+  .desc {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    margin-top: var(--space-2);
+    max-width: 60ch;
+  }
+
+  .count {
+    color: var(--text-dim);
+    font-size: var(--text-sm);
+  }
+</style>

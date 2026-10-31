@@ -1,0 +1,164 @@
+---
+/*
+  The round navigation the shop opens with. Written against the shape rather
+  than against one entity: the homepage sends categories, and a category page
+  could send its collections, without either needing a second copy of this.
+*/
+interface CircleItem {
+  slug: string;
+  name: string;
+  coverUrl: string | null;
+}
+
+interface Props {
+  items: CircleItem[];
+  /** Path the slug is appended to, with no trailing slash. */
+  base: string;
+  title: string;
+}
+
+const { items, base, title } = Astro.props;
+---
+
+{
+  items.length > 0 && (
+    <section class="shell cats">
+      <div class="section-head">
+        <h2 class="section-title">{title}</h2>
+      </div>
+
+      <ul class="cat-grid">
+        {items.map((item, i) => (
+          <li>
+            <a class="cat" href={`${base}/${item.slug}`}>
+              {/*
+                `.media` is what carries discreet mode, so these circles blur
+                with everything else — browsing in public shouldn't start with
+                a wall of product photos. The name underneath stays sharp, so
+                the section still works as navigation while blurred: you read
+                where you're going rather than looking at it.
+              */}
+              <div class="cat-ring media">
+                {item.coverUrl ? (
+                  <img
+                    class="media-el"
+                    src={item.coverUrl}
+                    alt=""
+                    width="160"
+                    height="160"
+                    loading={i < 6 ? 'eager' : 'lazy'}
+                    decoding="async"
+                  />
+                ) : (
+                  <div class="cat-blank" aria-hidden="true" />
+                )}
+              </div>
+              <span class="cat-name">{item.name}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  .cats {
+    padding-block: var(--space-7);
+  }
+
+  .cat-grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    /* Fixed column counts rather than auto-fit: the circles are navigation,
+       and a row that silently changes length between screen widths makes the
+       same category move every time someone comes back to it. */
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-4);
+  }
+
+  .cat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: center;
+    transition: transform 0.25s var(--ease);
+  }
+
+  /*
+    The photo is shown as it is. An earlier version tinted the whole row into
+    one colour to stop the white studio backgrounds glaring against the dark
+    page — the shop looked at it and asked for the real pictures instead, so
+    the glare is the trade they chose.
+  */
+  .cat-ring {
+    background: var(--well);
+    width: 100%;
+    /* Capped rather than filling the column: the column has to stay wide
+       enough for names like "Búp Bê Tình Dục Nam Nữ", which would otherwise set
+       how big every circle is. */
+    max-width: 140px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px solid var(--indigo-deep);
+    /* Sits inside the border so a photo with a pale edge still reads as a
+       disc rather than bleeding into the page. */
+    box-shadow: inset 0 0 0 3px var(--paper);
+    transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  }
+
+  /* Shown only when an item has no photo of its own and holds nothing with a
+     photo to borrow — an empty disc rather than a gap in the row. */
+  .cat-blank {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--card), var(--well));
+  }
+
+  .cat-name {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    line-height: 1.35;
+    transition: color 0.25s var(--ease);
+  }
+
+  .cat:hover {
+    transform: translateY(-3px);
+  }
+
+  .cat:hover .cat-ring,
+  .cat:focus-visible .cat-ring {
+    border-color: var(--indigo);
+    box-shadow: inset 0 0 0 3px var(--paper), 0 0 0 3px var(--indigo-wash);
+  }
+
+  .cat:hover .cat-name,
+  .cat:focus-visible .cat-name {
+    color: var(--text);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cat:hover {
+      transform: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .cat-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .cat-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-4) var(--space-3);
+    }
+
+    .cat-name {
+      font-size: var(--text-xs);
+    }
+  }
+</style>

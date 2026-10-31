@@ -1,0 +1,59 @@
+---
+import Base from '../layouts/Base.astro';
+import { findChannel, zaloLink } from '../lib/format';
+import { getSnapshot } from '../lib/snapshot';
+
+const { contactChannels } = await getSnapshot();
+const zalo = findChannel(contactChannels, 'zalo');
+
+// Set explicitly because this page is also reached by rewrite from the slug
+// routes, and a rewrite carries the status of the page it lands on. Without
+// this a missing product would answer 200 and search engines would keep the
+// dead URL in their index.
+Astro.response.status = 404;
+---
+
+<Base title="Không tìm thấy trang">
+  <section class="shell notfound">
+    <p class="eyebrow">404</p>
+    <h1>Trang này không còn nữa</h1>
+    <p class="lead">
+      Sản phẩm có thể đã được gỡ hoặc đổi đường dẫn. Bạn thử tìm lại, hoặc nhắn Zalo để shop
+      tìm giúp.
+    </p>
+    <div class="actions">
+      <a class="btn btn-ghost" href="/">Về trang chủ</a>
+      <a class="btn btn-ghost" href="/tim-kiem">Tìm sản phẩm</a>
+      {
+        zalo && (
+          <a class="btn btn-zalo" href={zaloLink(zalo)} target="_blank" rel="noopener noreferrer">
+            Nhắn Zalo
+          </a>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .notfound {
+    padding-block: var(--space-9);
+    max-width: 60ch;
+  }
+
+  .notfound h1 {
+    font-size: var(--text-3xl);
+    margin-block: var(--space-2) var(--space-4);
+  }
+
+  .lead {
+    color: var(--text-soft);
+    margin-bottom: var(--space-6);
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+</style>

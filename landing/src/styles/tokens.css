@@ -1,0 +1,87 @@
+/*
+  BinLoves' colours are the shop's own, measured off the running site rather
+  than invented: the grey-blue ground #e0e5ec, white cards, and indigo #4f46e5
+  doing the work of both the price and every primary control.
+
+  That ground is what makes the soft-UI shadows below possible. Almost nothing
+  here is separated by a line — a card sits above the page because light falls
+  on it from the top left, so the shadow pair (cool below-right, white
+  above-left) is structure, not decoration. --line exists for the few places a
+  shadow would be too heavy, which is why it sits so close to the ground.
+
+  Only one colour is reserved: --indigo marks what is for sale and what can be
+  clicked. The discreet control gets no hue at all — it reads through fill and
+  brightness, so it never competes with a price for the same kind of attention.
+*/
+:root {
+  --paper: #e0e5ec;
+  --card: #ffffff;
+  --well: #d6dce6;
+
+  --line: #cdd6e3;
+  --line-strong: #b3c0d2;
+
+  --text: #1f2937;
+  --text-soft: #374151;
+  --text-dim: #6b7280;
+
+  --indigo: #4f46e5;
+  --indigo-deep: #3730a3;
+  --indigo-bright: #6366f1;
+  --indigo-wash: #eef2ff;
+
+  /* The discreet control and the discretion promises. Slate, not a third hue:
+     a coloured privacy cue would read as another thing being advertised. */
+  --calm: #5b6b80;
+  --calm-wash: rgba(91, 107, 128, 0.12);
+
+  /* Zalo's own blue, not ours — it belongs to the button that opens Zalo, and
+     sits far enough from --indigo to read as a different kind of thing. */
+  --zalo: #0068ff;
+
+  /* The soft-UI shadow set, taken from the running site so cards keep the
+     exact weight customers already know. rgb(163,177,198) is the ground's own
+     shadow colour; a neutral grey here turns the whole page muddy. */
+  --shadow-sm: 2px 2px 4px rgba(163, 177, 198, 0.4), -1px -1px 3px rgba(255, 255, 255, 0.8);
+  --shadow-md: 4px 4px 8px rgba(163, 177, 198, 0.5), -2px -2px 6px rgba(255, 255, 255, 0.9);
+  --shadow-lg: 6px 6px 12px rgba(163, 177, 198, 0.6), -3px -3px 8px rgba(255, 255, 255, 1);
+  --shadow-inset: inset 2px 2px 4px rgba(163, 177, 198, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+
+  /* Lora for headings and Inter for the rest, as the running site has it.
+     Both ship a Vietnamese subset — the constraint that rules out most
+     alternatives, since a face without one drops the diacritics to a fallback
+     and the word changes shape mid-heading. */
+  --font-display: 'Lora Variable', Georgia, serif;
+  --font-body: 'Inter Variable', system-ui, sans-serif;
+
+  /* Type scale: 1.25 ratio, clamped so headings stay readable on phones. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.25rem + 1.1vw, 2rem);
+  --text-3xl: clamp(1.875rem, 1.4rem + 2vw, 2.75rem);
+  --text-4xl: clamp(2.25rem, 1.5rem + 3.2vw, 4rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* Soft corners, unlike the sibling shop this architecture came from: the
+     running BinLoves rounds everything and sets its categories in full
+     circles, and that friendliness is part of what customers recognise. */
+  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shell: 1200px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

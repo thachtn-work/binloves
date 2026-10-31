@@ -1,0 +1,173 @@
+---
+import type { Category, ContactChannel } from '../lib/snapshot';
+import { findChannel, zaloLink } from '../lib/format';
+import DiscreetToggle from './DiscreetToggle.astro';
+
+interface Props {
+  shopName: string;
+  categories: Category[];
+  contactChannels: ContactChannel[];
+}
+
+const { shopName, categories, contactChannels } = Astro.props;
+const zalo = findChannel(contactChannels, 'zalo');
+const currentPath = Astro.url.pathname;
+---
+
+<header class="site-header">
+  <div class="shell header-inner">
+    <a href="/" class="wordmark" aria-label={`${shopName} — về trang chủ`}>
+      <span>{shopName}</span>
+    </a>
+
+    <form class="search" action="/tim-kiem" method="get" role="search">
+      <label for="q" class="sr-only">Tìm sản phẩm</label>
+      <input
+        type="search"
+        id="q"
+        name="q"
+        placeholder="Tìm sản phẩm…"
+        autocomplete="off"
+        enterkeyhint="search"
+      />
+    </form>
+
+    <div class="header-actions">
+      <DiscreetToggle />
+      {
+        zalo && (
+          <a class="btn btn-zalo" href={zaloLink(zalo)} target="_blank" rel="noopener noreferrer">
+            Nhắn Zalo
+          </a>
+        )
+      }
+    </div>
+  </div>
+
+  {
+    categories.length > 0 && (
+      <nav class="catnav" aria-label="Danh mục sản phẩm">
+        <div class="shell catnav-inner">
+          {categories.map((c) => (
+            <a
+              href={`/danh-muc/${c.slug}`}
+              class:list={['catnav-link', { 'is-active': currentPath === `/danh-muc/${c.slug}` }]}
+            >
+              {c.name}
+            </a>
+          ))}
+        </div>
+      </nav>
+    )
+  }
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding-block: var(--space-4);
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  .search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    color: var(--text);
+    font-size: var(--text-sm);
+    transition: border-color 0.2s var(--ease);
+  }
+
+  .search input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .search input:focus {
+    border-color: var(--indigo);
+    outline: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .catnav {
+    border-top: 1px solid var(--line);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .catnav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .catnav-inner {
+    display: flex;
+    gap: var(--space-5);
+    padding-block: var(--space-3);
+    white-space: nowrap;
+  }
+
+  .catnav-link {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    padding-bottom: 2px;
+    border-bottom: 1px solid transparent;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+
+  .catnav-link:hover {
+    color: var(--text);
+  }
+
+  .catnav-link.is-active {
+    color: var(--indigo);
+    border-color: var(--indigo);
+  }
+
+  @media (max-width: 760px) {
+    .header-inner {
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+
+    .wordmark {
+      flex: 1;
+    }
+
+    .search {
+      order: 3;
+      flex-basis: 100%;
+    }
+  }
+</style>

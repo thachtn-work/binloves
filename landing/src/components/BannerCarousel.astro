@@ -1,0 +1,241 @@
+---
+import type { Banner } from '../lib/snapshot';
+import MediaFrame from './MediaFrame.astro';
+
+interface Props {
+  banners: Banner[];
+  /**
+   * `hero` fills the top of the homepage edge to edge and tints the artwork
+   * into the palette. The shop's own banner is purple clip-art; run full-bleed
+   * untouched it would make the hero purple and leave the rest of the page
+   * looking like a different site. Blended, it keeps its drawing and loses its
+   * hue — which is the whole reason it can be this big.
+   */
+  variant?: 'card' | 'hero';
+}
+
+const { banners, variant = 'card' } = Astro.props;
+
+const noun = (banner: Banner) => (banner.media.mediaType === 'video' ? 'Xem video' : 'Xem ảnh');
+---
+
+<div class={`carousel ${variant === 'hero' ? 'is-hero' : ''}`} data-carousel aria-roledescription="carousel" aria-label="Nội dung nổi bật">
+  <div class="track" data-track>
+    {
+      banners.map((banner, index) => {
+        const inner = (
+          <div class="media slide-media">
+            <MediaFrame
+              item={banner.media}
+              alt={banner.title ?? ''}
+              width={900}
+              height={600}
+              eager={index === 0}
+              behaviour="banner"
+            />
+            {banner.title && <p class="slide-title">{banner.title}</p>}
+            <button type="button" class="reveal-btn" aria-label={noun(banner)}>
+              {noun(banner)}
+            </button>
+          </div>
+        );
+
+        return (
+          <div class="slide" data-slide aria-hidden={index === 0 ? 'false' : 'true'}>
+            {banner.linkUrl ? (
+              <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer">
+                {inner}
+              </a>
+            ) : (
+              inner
+            )}
+          </div>
+        );
+      })
+    }
+  </div>
+
+  {
+    banners.length > 1 && (
+      <div class="dots" role="tablist" aria-label="Chọn mục">
+        {banners.map((_, index) => (
+          <button
+            type="button"
+            class="dot"
+            data-dot
+            role="tab"
+            aria-selected={index === 0 ? 'true' : 'false'}
+            aria-label={`Mục ${index + 1}`}
+          />
+        ))}
+      </div>
+    )
+  }
+</div>
+
+<script>
+  const AUTOPLAY_MS = 6000;
+
+  function initCarousels() {
+    document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+
+      const slides = Array.from(root.querySelectorAll<HTMLElement>('[data-slide]'));
+      const dots = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-dot]'));
+      if (slides.length < 2) return;
+
+      const track = root.querySelector<HTMLElement>('[data-track]');
+      let index = 0;
+      let timer: number | undefined;
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function show(next: number) {
+        index = (next + slides.length) % slides.length;
+        if (track) track.style.transform = `translateX(-${index * 100}%)`;
+        slides.forEach((s, i) => s.setAttribute('aria-hidden', String(i !== index)));
+        dots.forEach((d, i) => d.setAttribute('aria-selected', String(i === index)));
+      }
+
+      function start() {
+        if (prefersReducedMotion) return;
+        stop();
+        timer = window.setInterval(() => show(index + 1), AUTOPLAY_MS);
+      }
+
+      function stop() {
+        if (timer) window.clearInterval(timer);
+      }
+
+      dots.forEach((dot, i) =>
+        dot.addEventListener('click', () => {
+          show(i);
+          start();
+        }),
+      );
+
+      root.addEventListener('mouseenter', stop);
+      root.addEventListener('mouseleave', start);
+      root.addEventListener('focusin', stop);
+      root.addEventListener('focusout', start);
+      // Autoplay in a background tab burns battery for nobody's benefit.
+      document.addEventListener('visibilitychange', () =>
+        document.hidden ? stop() : start(),
+      );
+
+      show(0);
+      start();
+    });
+  }
+
+  initCarousels();
+  document.addEventListener('astro:after-swap', initCarousels);
+</script>
+
+<style>
+  .carousel {
+    position: relative;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+
+  .track {
+    display: flex;
+    transition: transform 0.6s var(--ease);
+  }
+
+  .slide {
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  .slide-media {
+    aspect-ratio: 3 / 2;
+  }
+
+  .is-hero,
+  .is-hero .track,
+  .is-hero .slide,
+  .is-hero .slide > a {
+    height: 100%;
+  }
+
+  .is-hero {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .is-hero .slide-media {
+    aspect-ratio: auto;
+    height: 100%;
+    background: var(--well);
+  }
+
+  /* The photographs are the shop's own and go up untouched — no tint, no
+     blend. They are the most characteristic thing the shop owns, and the
+     page is built so they do not have to match it. */
+  .is-hero .slide-media :global(.media-el) {
+    height: 100%;
+  }
+
+  /* Centred over the artwork, with a band behind it rather than a gradient up
+     the whole frame: these photographs are dark in some slides and pale in
+     others, and only a band keeps one title legible across all of them. */
+  .is-hero .slide-title {
+    inset-block: 50% auto;
+    translate: 0 -50%;
+    padding: 0;
+    background: none;
+    text-align: center;
+    font-size: var(--text-3xl);
+  }
+
+  .is-hero .slide-title::after {
+    content: '';
+  }
+
+  .is-hero .slide-title :global(span),
+  .is-hero .slide-title {
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+  }
+
+  .slide-title {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 2;
+    margin: 0;
+    padding: var(--space-6) var(--space-5) var(--space-4);
+    background: linear-gradient(to top, rgba(16, 13, 20, 0.92), transparent);
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+  }
+
+  .dots {
+    position: absolute;
+    inset-block-end: var(--space-3);
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: var(--space-2);
+    z-index: 3;
+  }
+
+  .dot {
+    width: 28px;
+    height: 3px;
+    border: 0;
+    padding: 0;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    transition: background-color 0.3s var(--ease);
+  }
+
+  .dot[aria-selected='true'] {
+    background: var(--indigo);
+  }
+</style>

@@ -1,0 +1,217 @@
+---
+import type { ContactChannel } from '../lib/snapshot';
+import { CHANNEL_LABELS, channelHref } from '../lib/format';
+
+interface Props {
+  contactChannels: ContactChannel[];
+}
+
+const { contactChannels } = Astro.props;
+
+/*
+  Only the ones the owner has actually filled in appear — the dock is built
+  from the same contact channels the footer and the header button read, so
+  adding or removing one in the admin is all it takes. Nothing here is
+  hard-coded to four buttons: a shop with only Zalo gets one, and it still
+  looks deliberate.
+
+  Order follows the channels' own sortOrder, which the owner controls, so the
+  one they want reached first can be put first.
+*/
+const DOCKED_TYPES = ['zalo', 'messenger', 'telegram', 'phone'];
+const docked = contactChannels.filter((c) => DOCKED_TYPES.includes(c.type));
+
+/*
+  Each service's own colour, because these buttons stand for someone else's
+  app: a customer looks for Zalo's blue, not ours. Phone belongs to no brand,
+  so it takes the green that every dialler on a phone already uses.
+*/
+const BRAND: Record<string, string> = {
+  zalo: '#0068ff',
+  messenger: '#0084ff',
+  telegram: '#28a8e9',
+  phone: '#16a34a',
+};
+
+/*
+  A call is not a message, and a `tel:` is not a page. Saying "Nhắn qua Điện
+  thoại" would be wrong in a screen reader, and opening a dial intent in a new
+  tab leaves an empty one behind on every desktop that handles it.
+*/
+const isCall = (channel: ContactChannel) => channel.type === 'phone';
+---
+
+{
+  docked.length > 0 && (
+    <nav class="dock" aria-label="Liên hệ nhanh">
+      {docked.map((channel, index) => (
+        <a
+          class="dock-btn"
+          href={channelHref(channel)}
+          target={isCall(channel) ? undefined : '_blank'}
+          rel={isCall(channel) ? undefined : 'noopener noreferrer'}
+          style={`--stagger: ${(index * 0.22).toFixed(2)}s; --brand: ${BRAND[channel.type] ?? 'var(--indigo)'}`}
+          aria-label={
+            isCall(channel)
+              ? `Gọi ${channel.value}`
+              : `Nhắn qua ${CHANNEL_LABELS[channel.type] ?? channel.type}`
+          }
+        >
+          {/* Drawn inline rather than loaded: four small glyphs cost less as
+              markup than as four more requests, and they inherit currentColor
+              so discreet mode can drain them without a second set of files. */}
+          {channel.type === 'zalo' && (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 3C6.9 3 2.8 6.4 2.8 10.6c0 2.4 1.3 4.5 3.4 5.9-.1.8-.5 2-1.4 2.9-.2.2 0 .6.3.5 1.8-.3 3.1-1.1 3.8-1.6.9.2 1.9.4 3.1.4 5.1 0 9.2-3.4 9.2-7.6S17.1 3 12 3Z"
+              />
+              <text x="12" y="13.1" text-anchor="middle" font-size="5.6" font-weight="700" fill="var(--brand)">
+                Zalo
+              </text>
+            </svg>
+          )}
+          {channel.type === 'messenger' && (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 2.4c-5.4 0-9.6 3.9-9.6 9.2 0 2.8 1.2 5.2 3.1 6.9.2.1.3.4.3.6l.1 1.7c0 .5.6.9 1.1.7l1.9-.8c.2-.1.4-.1.5 0 .9.2 1.8.4 2.8.4 5.4 0 9.6-3.9 9.6-9.2S17.4 2.4 12 2.4Zm5.7 7-2.8 4.4c-.4.7-1.4.9-2 .4l-2.2-1.7c-.2-.2-.5-.2-.7 0l-3 2.3c-.4.3-.9-.2-.6-.6l2.8-4.4c.4-.7 1.4-.9 2-.4l2.2 1.7c.2.2.5.2.7 0l3-2.3c.4-.3.9.2.6.6Z"
+              />
+            </svg>
+          )}
+          {channel.type === 'telegram' && (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M21.5 4.3 2.9 11.5c-.9.4-.9 1.6 0 1.9l4.6 1.6 1.8 5.6c.3.8 1.3 1 1.9.4l2.5-3.1 4.7 3.4c.6.5 1.5.1 1.7-.6l3.2-14.7c.2-.8-.7-1.5-1.4-1.2Zm-3 3.4-8.2 7.3c-.2.1-.3.3-.3.6l-.3 2.4-1.3-4 9.6-6.7c.3-.2.7.2.5.4Z"
+              />
+            </svg>
+          )}
+          {channel.type === 'phone' && (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"
+              />
+            </svg>
+          )}
+        </a>
+      ))}
+    </nav>
+  )
+}
+
+<style>
+  .dock {
+    position: fixed;
+    inset-block-end: var(--space-4);
+    inset-inline-end: var(--space-4);
+    /* Above the sticky header (50), which is the highest thing on the page. */
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /*
+    A filled disc in the service's own colour, the way the running site has
+    them. The shadow is the page's own soft-UI pair rather than a dark glow:
+    these sit over a light ground and have to belong to it.
+  */
+  .dock-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(99, 112, 134, 0.4);
+    animation: dock-nudge 3.4s var(--ease) var(--stagger, 0s) infinite;
+    transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease);
+  }
+
+  .dock-btn svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  /*
+    The zoom lives on the glyph, not on the button. The nudge animation drives
+    `transform` on the button, and an animation outranks a plain rule — so a
+    `transform` here would be silently ignored, pausing the animation included:
+    pausing freezes the animated value rather than handing the property back.
+  */
+  .dock-btn:hover svg,
+  .dock-btn:focus-visible svg {
+    transform: scale(1.12);
+  }
+
+  .dock-btn:hover,
+  .dock-btn:focus-visible {
+    /* Once it has been noticed, the movement has done its job. */
+    animation-play-state: paused;
+    box-shadow: 0 8px 20px rgba(99, 112, 134, 0.5);
+  }
+
+  /*
+    A long pause between short nudges: the buttons have to be noticed, but
+    something that never stops moving in the corner of a page people browse in
+    public is the opposite of what this shop promises.
+  */
+  @keyframes dock-nudge {
+    0%,
+    88%,
+    100% {
+      transform: translateY(0);
+    }
+    92% {
+      transform: translateY(-4px);
+    }
+    96% {
+      transform: translateY(-1px);
+    }
+  }
+
+  /*
+    Discreet mode drains them to the page's own colours. Blurring would make
+    them unusable, but four saturated brand discs glowing in the corner would
+    give the page away faster than any product photo the mode is busy hiding.
+  */
+  :root[data-discreet='on'] .dock-btn {
+    background: var(--card);
+    color: var(--text-soft);
+    box-shadow: var(--shadow-md), inset 0 0 0 1px var(--line-strong);
+    transition: background 0.45s var(--ease), color 0.45s var(--ease);
+  }
+
+  :root[data-discreet='on'] .dock-btn:hover,
+  :root[data-discreet='on'] .dock-btn:focus-visible {
+    background: var(--brand);
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dock-btn {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .dock {
+      inset-block-end: var(--space-3);
+      inset-inline-end: var(--space-3);
+      gap: var(--space-2);
+    }
+
+    .dock-btn {
+      width: 46px;
+      height: 46px;
+    }
+
+    .dock-btn svg {
+      width: 26px;
+      height: 26px;
+    }
+  }
+</style>

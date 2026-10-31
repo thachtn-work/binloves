@@ -1,0 +1,19 @@
+# Cách Embra dựng và chạy app này.
+#
+# Một image chứa cả landing, admin và API nên deploy/rollback đi cùng nhau,
+# không bao giờ lệch phiên bản giữa ba phần.
+
+[build]
+builder = "dockerfile"
+# Tên cửa hàng được nướng vào bundle admin lúc build (màn đăng nhập hiện nó
+# trước khi có bất kỳ dữ liệu nào). Đây không phải secret.
+env = { VITE_SHOP_NAME = "BinLoves" }
+
+[deploy]
+port = 3000
+# Liveness: chỉ hỏi "tiến trình còn trả lời không", không chạm database — để
+# một lần nấc của DB không bị hiểu là app chết và bị khởi động lại vô ích.
+# Muốn biết shop có bán được hay không thì xem /api/v1/health/ready.
+health_path = "/api/v1/health"
+migrations = "migrations"
+database = true

@@ -1,0 +1,12 @@
+-- Removes a media row whose storage key is empty.
+--
+-- It was created by a confirm request sent during post-migration testing: the
+-- shell that built it lost the key, so the row points at nothing. The usual
+-- delete cannot clear it — media.remove() deletes the stored object before the
+-- row, on purpose, so that a storage failure leaves the file visible and
+-- retryable rather than stranded; with an empty key that first step always
+-- fails and the row survives every attempt.
+--
+-- An empty key is never valid, so the condition is written on the key rather
+-- than the id: it describes the defect instead of this one instance.
+DELETE FROM "media" WHERE "key" = '';

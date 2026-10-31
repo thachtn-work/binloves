@@ -1,0 +1,72 @@
+---
+import Base from '../layouts/Base.astro';
+import ProductCard from '../components/ProductCard.astro';
+import { getSnapshot } from '../lib/snapshot';
+import ProductFilters from '../components/ProductFilters.astro';
+
+const { products, categories } = await getSnapshot();
+const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+
+// Diacritic-insensitive so "ao" finds "áo" — the way people actually type on a
+// phone keyboard.
+const normalize = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd');
+
+const entries = products.map((product) => ({
+  product,
+  haystack: normalize(
+    [product.name, categoryName.get(product.categoryId ?? '') ?? '', product.description ?? ''].join(' '),
+  ),
+}));
+---
+
+<Base title="Tìm sản phẩm">
+  <section class="shell search-page">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Tìm kiếm</p>
+        <h1 class="section-title" id="search-heading">Tìm sản phẩm</h1>
+      </div>
+    </div>
+
+    <ProductFilters total={products.length} searchable />
+
+    {/* Every product is rendered server-side, so results exist without JS and
+        filtering is instant — there is no loading state to design around. */}
+    <div class="grid-products" data-results>
+      {
+        entries.map(({ product, haystack }, i) => (
+          <div data-item data-haystack={haystack} data-price={product.salePrice ?? product.price ?? ''}>
+            <ProductCard product={product} priority={i < 4} />
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="empty-state" data-no-results hidden>
+      <strong>Không tìm thấy sản phẩm nào</strong>
+      <p>Thử từ khoá ngắn hơn, hoặc nhắn Zalo để shop tìm giúp bạn.</p>
+    </div>
+  </section>
+</Base>
+
+
+
+<style>
+  .search-page {
+    padding-block: var(--space-7);
+  }
+
+
+
+
+
+
+  [data-item][hidden] {
+    display: none;
+  }
+</style>

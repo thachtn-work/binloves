@@ -1,0 +1,72 @@
+---
+// Control for the discreet-mode signature. State lives on <html> so CSS can
+// react to it globally without any per-component JS.
+---
+
+<button
+  type="button"
+  class="discreet-toggle"
+  id="discreet-toggle"
+  aria-pressed="false"
+  title="Làm mờ ảnh sản phẩm khi bạn đang ở nơi đông người"
+>
+  <span class="dot" aria-hidden="true"></span>
+  <span class="discreet-toggle__label-off">Chế độ kín đáo</span>
+  <span class="discreet-toggle__label-on">Đang bật chế độ kín đáo</span>
+</button>
+
+<script>
+  const STORAGE_KEY = 'discreet-mode';
+
+  function apply(on: boolean) {
+    document.documentElement.dataset.discreet = on ? 'on' : 'off';
+    document
+      .querySelectorAll<HTMLButtonElement>('#discreet-toggle')
+      .forEach((btn) => btn.setAttribute('aria-pressed', String(on)));
+    // Blur is a style the browser applies for us; stopping a clip that is
+    // already playing is not. MediaFrame listens for this so the two scripts
+    // need no reference to each other.
+    document.dispatchEvent(new Event('discreet:change'));
+  }
+
+  function isOn() {
+    return localStorage.getItem(STORAGE_KEY) === 'on';
+  }
+
+  function bind() {
+    apply(isOn());
+
+    document.querySelectorAll<HTMLButtonElement>('#discreet-toggle').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', () => {
+        const next = !isOn();
+        localStorage.setItem(STORAGE_KEY, next ? 'on' : 'off');
+        apply(next);
+        // Leaving individual reveals sticky after a toggle would contradict
+        // what the control just promised.
+        document.querySelectorAll('.media.is-revealed').forEach((m) => m.classList.remove('is-revealed'));
+      });
+    });
+  }
+
+  function bindRevealButtons() {
+    document.querySelectorAll<HTMLButtonElement>('.reveal-btn').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', (event) => {
+        // The button sits inside a card-wide link; revealing must not navigate.
+        event.preventDefault();
+        event.stopPropagation();
+        btn.closest('.media')?.classList.add('is-revealed');
+      });
+    });
+  }
+
+  bind();
+  bindRevealButtons();
+  document.addEventListener('astro:after-swap', () => {
+    bind();
+    bindRevealButtons();
+  });
+</script>

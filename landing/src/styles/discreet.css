@@ -1,0 +1,187 @@
+/*
+  The signature behaviour: with discreet mode on, every product photo and clip
+  is blurred until the visitor deliberately reveals it. This exists because people
+  browse this shop on a phone in public — it is the brand promise made usable,
+  not an effect.
+
+  Default is OFF: arriving to a wall of blurred images would read as broken for
+  the majority who are already browsing privately.
+*/
+.media {
+  position: relative;
+  overflow: hidden;
+  background: var(--well);
+}
+
+/* `.media-el` is whichever of <img> or <video> MediaFrame rendered; both sit
+   in the frame the same way, so every rule below treats them alike. */
+.media .media-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.45s var(--ease), transform 0.5s var(--ease);
+}
+
+/* The product page is the one place a clip is watched rather than glanced at,
+   so it is shown whole — cropping a video to a square hides half of what the
+   shop filmed. Letterboxing against the frame's own background is the honest
+   trade. */
+.media video[data-video='full'] {
+  object-fit: contain;
+}
+
+/* Marks a clip as a clip wherever no player controls already say so. */
+.media-play {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(16, 13, 20, 0.72);
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.media-play::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  /* The optical centre of a triangle sits right of its bounding box centre. */
+  transform: translate(-40%, -50%);
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent var(--text);
+}
+
+/*
+  A file that fails to load (deleted from the bucket, bad URL) would otherwise
+  render its alt text sprawling across the card, or — for a clip — leave a dead
+  black rectangle. Swap in the same placeholder treatment used for products
+  with nothing uploaded at all, so a broken asset degrades quietly instead of
+  looking like a bug.
+*/
+.media.is-broken .media-el,
+.media.is-broken .media-play {
+  display: none;
+}
+
+.media.is-broken::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--card), var(--well));
+}
+
+:root[data-discreet='on'] .media .media-el {
+  filter: blur(18px) saturate(0.75);
+  transform: scale(1.06); /* hides the soft edges blur leaves at the frame */
+}
+
+/* Desktop: hovering the card is a deliberate enough gesture to reveal. */
+@media (hover: hover) {
+  :root[data-discreet='on'] .media:hover .media-el,
+  :root[data-discreet='on'] .media:focus-within .media-el {
+    filter: none;
+    transform: none;
+  }
+}
+
+/* Touch: tapping a card navigates, so revealing needs its own control. */
+.reveal-btn {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-end: var(--space-2);
+  z-index: 2;
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: rgba(16, 13, 20, 0.82);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+@media (hover: none) {
+  :root[data-discreet='on'] .reveal-btn {
+    display: inline-flex;
+  }
+}
+
+.media.is-revealed .media-el {
+  filter: none !important;
+  transform: none !important;
+}
+
+/* A player's controls are part of the element, so the blur lands on them too.
+   Keeping the reveal button off the control bar means the one tap that makes
+   them usable is never the tap that lands on a scrub bar it cannot read. */
+.media:has(video[data-video='full']) .reveal-btn {
+  inset-block-start: var(--space-2);
+  inset-block-end: auto;
+}
+
+.media.is-revealed .reveal-btn {
+  display: none;
+}
+
+/* The toggle itself. Eucalyptus marks it as a trust control — the only place
+   in the palette that colour is allowed to appear. */
+.discreet-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease),
+    background-color 0.2s var(--ease);
+}
+
+.discreet-toggle:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+:root[data-discreet='on'] .discreet-toggle {
+  color: var(--calm);
+  border-color: var(--calm);
+  background: var(--calm-wash);
+}
+
+.discreet-toggle .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+  transition: opacity 0.2s var(--ease);
+}
+
+:root[data-discreet='on'] .discreet-toggle .dot {
+  opacity: 1;
+}
+
+.discreet-toggle__label-on {
+  display: none;
+}
+
+:root[data-discreet='on'] .discreet-toggle__label-on {
+  display: inline;
+}
+
+:root[data-discreet='on'] .discreet-toggle__label-off {
+  display: none;
+}

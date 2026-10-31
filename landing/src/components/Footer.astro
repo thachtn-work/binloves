@@ -1,0 +1,161 @@
+---
+import type { ContactChannel } from '../lib/snapshot';
+import { CHANNEL_LABELS, channelHref } from '../lib/format';
+
+interface Props {
+  shopName: string;
+  tagline: string | null;
+  address: string | null;
+  businessHours: string | null;
+  contactChannels: ContactChannel[];
+}
+
+const { shopName, tagline, address, businessHours, contactChannels } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="shell footer-inner">
+    <div class="footer-brand">
+      <p class="wordmark">{shopName}</p>
+      {tagline && <p class="tagline">{tagline}</p>}
+    </div>
+
+    {
+      contactChannels.length > 0 && (
+        <div class="footer-col">
+          <p class="eyebrow">Liên hệ</p>
+          <ul>
+            {contactChannels.map((c) => (
+              <li>
+                <a href={channelHref(c)} target="_blank" rel="noopener noreferrer">
+                  {c.label ?? CHANNEL_LABELS[c.type] ?? c.type}
+                  <span class="value">{c.value}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    {
+      (address || businessHours) && (
+        <div class="footer-col">
+          <p class="eyebrow">Cửa hàng</p>
+          <ul>
+            {address && <li class="plain">{address}</li>}
+            {businessHours && <li class="plain">{businessHours}</li>}
+          </ul>
+        </div>
+      )
+    }
+  </div>
+
+  <div class="shell footer-base">
+    <p>© {year} {shopName}</p>
+
+    {/* Kept at the same weight as the copyright line: present and clickable,
+        but never competing with the shop's own name above it. Referrer is
+        deliberately not blocked here so the credit can be attributed. */}
+    <p class="credit">
+      Design by
+      <a href="https://thachtn.work" target="_blank" rel="noopener">thachtn.work</a>
+    </p>
+
+    <p class="promise">Đóng gói kín, không in tên sản phẩm trên bao bì</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: var(--space-9);
+    border-top: 1px solid var(--line);
+    background: var(--well);
+    padding-block: var(--space-7) var(--space-5);
+  }
+
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: var(--space-6);
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-2);
+  }
+
+  .tagline {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    max-width: 34ch;
+  }
+
+  .footer-col ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .footer-col a {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+    transition: color 0.2s var(--ease);
+  }
+
+  .footer-col a:hover {
+    color: var(--indigo);
+  }
+
+  .footer-col .value {
+    color: var(--text);
+  }
+
+  .footer-col .plain {
+    font-size: var(--text-sm);
+    color: var(--text-soft);
+  }
+
+  .footer-base {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-top: var(--space-7);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--line);
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+  }
+
+  /* The one eucalyptus note down here: a discretion promise, same signal
+     colour as the discreet-mode control. */
+  .promise {
+    color: var(--calm);
+  }
+
+  .credit a {
+    color: var(--text-soft);
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 1px;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+  }
+
+  .credit a:hover {
+    color: var(--indigo);
+    border-color: var(--indigo);
+  }
+
+  @media (max-width: 760px) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+  }
+</style>
