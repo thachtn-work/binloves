@@ -141,7 +141,7 @@ export class MediaService {
     // Storage first: if it throws we keep the DB row, so the file stays
     // visible in the media library and can be retried. The reverse order
     // would strand an un-deletable object in the bucket.
-    await this.storage.deleteObject(media.key);
+    await this.storage.deleteStoredObject(media.key, media.url);
     await this.prisma.media.delete({ where: { id } });
   }
 }

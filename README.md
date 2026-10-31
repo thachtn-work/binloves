@@ -210,6 +210,26 @@ DigitalOcean Spaces and MinIO all work. Leave `S3_ENDPOINT` unset for AWS.
 `S3_PUBLIC_BASE_URL` is the public prefix stored with each file, so the bucket
 must allow public reads.
 
+### Two buckets, one of them frozen
+
+Each file's **absolute** URL is stored on its row, not rebuilt from the key at
+read time. That is what lets the bucket change without a migration: everything
+uploaded before the change keeps serving itself from where it already is,
+while new uploads go wherever `S3_*` now points.
+
+Keys cannot tell the two apart — a file uploaded last year sits under the same
+`images/` prefix as one uploaded today — so **deleting** routes on the stored
+URL instead. The optional `LEGACY_S3_*` variables describe the frozen bucket
+so that deleting one of its files from the admin still reaches the object. Had
+the delete gone to the current bucket it would have *succeeded*, because a
+delete for a key that is not there is not an error, and the file would have
+survived unreachable and still billed. Drop the variables once the old bucket
+is empty; the code notices they are gone.
+
+Neither bucket is ever written to by the other's credentials, and nothing
+copies files between them. Moving the old files is a separate job, done with
+`rclone` and nothing in this repo.
+
 JPEG, PNG, WebP, AVIF, MP4 and WebM are accepted; the allow-list lives in
 `presign-media.dto.ts` and is enforced where the upload URL is signed, which is
 the only moment the server is in the loop at all.

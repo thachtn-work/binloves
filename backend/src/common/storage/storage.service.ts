@@ -44,6 +44,25 @@ export interface MultipartStart {
   partUrls: string[];
 }
 
+interface LegacyStore {
+  client: S3Client;
+  bucket: string;
+  publicBaseUrl: string;
+}
+
+/*
+  Since v3.729 the SDK computes a CRC32 checksum for uploads by default and
+  signs the header into the URL. The browser doing the PUT knows nothing about
+  that header and never sends it, so the signature stops matching — R2 rejects
+  the request outright, and the error names a checksum rather than the
+  presigning that caused it. Requesting checksums only where the API requires
+  them is also how Cloudflare's own SDK example configures the client.
+*/
+const CHECKSUMS_OFF = {
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+} as const;
+
 // Provider-agnostic on purpose: anything S3-compatible (AWS S3, Cloudflare R2,
 // DigitalOcean Spaces, MinIO) works by pointing S3_ENDPOINT at it. File bytes
 // never pass through this process — we only ever hand out presigned PUT URLs
@@ -57,6 +76,7 @@ export class StorageService {
   private readonly publicBaseUrl: string;
   private readonly presignExpiresIn: number;
   private readonly multipartExpiresIn: number;
+  private readonly legacy: LegacyStore | null;
 
   constructor(private readonly config: ConfigService) {
     const region = this.config.get<string>('S3_REGION', 'auto');
@@ -77,7 +97,44 @@ export class StorageService {
       region,
       ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
       credentials: { accessKeyId, secretAccessKey },
+      ...CHECKSUMS_OFF,
     });
+
+    this.legacy = this.buildLegacy();
+  }
+
+  /**
+   * The bucket uploads used to go to, kept readable but never written to
+   * again. Media rows store an absolute URL, so every file uploaded before the
+   * move keeps serving itself from wherever it already lives — this exists
+   * only so that deleting such a file from the admin still reaches the object,
+   * instead of firing a delete at the new bucket, hitting nothing, and leaving
+   * a file nobody can see but everybody pays for.
+   *
+   * Optional by design: drop the LEGACY_S3_* variables once the old bucket is
+   * emptied and this disappears with them, no code change.
+   */
+  private buildLegacy(): LegacyStore | null {
+    const publicBaseUrl = this.config.get<string>('LEGACY_S3_PUBLIC_BASE_URL', '').replace(
+      /\/+$/,
+      '',
+    );
+    const bucket = this.config.get<string>('LEGACY_S3_BUCKET', '');
+    if (!publicBaseUrl || !bucket) return null;
+
+    const endpoint = this.config.get<string>('LEGACY_S3_ENDPOINT');
+    const client = new S3Client({
+      region: this.config.get<string>('LEGACY_S3_REGION', 'auto'),
+      ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+      credentials: {
+        accessKeyId: this.config.get<string>('LEGACY_S3_ACCESS_KEY_ID', ''),
+        secretAccessKey: this.config.get<string>('LEGACY_S3_SECRET_ACCESS_KEY', ''),
+      },
+      ...CHECKSUMS_OFF,
+    });
+
+    this.logger.log(`Legacy store readable at ${publicBaseUrl} (deletes only)`);
+    return { client, bucket, publicBaseUrl };
   }
 
   async presignUpload(filename: string, contentType: string): Promise<PresignResult> {
@@ -219,9 +276,41 @@ export class StorageService {
     return `${this.publicBaseUrl}/${key}`;
   }
 
+  /**
+   * Deletes a file the media library already knows about, sending the request
+   * to whichever bucket that file actually lives in.
+   *
+   * The stored URL is the only thing that can tell them apart: keys carry no
+   * bucket in them, and a file uploaded last year sits under the same
+   * `images/` prefix as one uploaded today. Routing on the key instead would
+   * aim every delete at the current bucket, where the old object does not
+   * exist — and a delete for a missing key succeeds, so nothing would look
+   * wrong while the file quietly survived.
+   */
+  async deleteStoredObject(key: string, url: string): Promise<void> {
+    if (this.legacy && url.startsWith(`${this.legacy.publicBaseUrl}/`)) {
+      return this.sendDelete(this.legacy.client, this.legacy.bucket, key);
+    }
+
+    // Belongs to neither: something rewrote the URL by hand, or the file was
+    // on a bucket that has since been dropped from the configuration. Deleting
+    // is not ours to do, but the row still goes — saying so is all we can
+    // usefully do about the object left behind.
+    if (this.publicBaseUrl && !url.startsWith(`${this.publicBaseUrl}/`)) {
+      this.logger.warn(`No configured bucket owns ${url} — leaving the object in place`);
+      return;
+    }
+
+    return this.sendDelete(this.client, this.bucket, key);
+  }
+
   async deleteObject(key: string): Promise<void> {
+    return this.sendDelete(this.client, this.bucket, key);
+  }
+
+  private async sendDelete(client: S3Client, bucket: string, key: string): Promise<void> {
     try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     } catch (err) {
       // Surfaced rather than swallowed: if the object survives but we drop the
       // DB row, the file becomes unreachable garbage nobody can clean up from
