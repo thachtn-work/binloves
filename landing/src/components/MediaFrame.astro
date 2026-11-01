@@ -163,6 +163,32 @@ const src = isVideo ? `${item.url}#t=0.1` : item.url;
     });
   }
 
+  /*
+    A <video> that arrived with a page swap has already given up.
+
+    View transitions build the next page in a document of their own and then
+    move the nodes across. A media element decides where its bytes come from
+    the moment it is created, and in a document with no browsing context that
+    decision fails — the element lands on the real page carrying
+    NETWORK_NO_SOURCE and error 4 from a document the visitor never saw.
+    Being moved is not one of the things that makes it reconsider, so the
+    frame stays blank until the page is reloaded by hand.
+
+    `load()` is what makes it reconsider. Only the ones that actually failed
+    are touched: calling it on a healthy element would throw away buffered
+    video and restart a banner clip mid-play. And only after a swap, never on
+    first load, where a video that has simply not started yet is a normal
+    state rather than a fault.
+  */
+  function revive() {
+    document.querySelectorAll<HTMLVideoElement>('video').forEach((video) => {
+      const lost =
+        video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE ||
+        video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED;
+      if (lost) video.load();
+    });
+  }
+
   function init() {
     watchCarousels();
     syncBanners();
@@ -170,5 +196,8 @@ const src = isVideo ? `${item.url}#t=0.1` : item.url;
 
   init();
   document.addEventListener('discreet:change', syncBanners);
-  document.addEventListener('astro:after-swap', init);
+  document.addEventListener('astro:after-swap', () => {
+    revive();
+    init();
+  });
 </script>
