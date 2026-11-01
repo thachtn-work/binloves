@@ -236,6 +236,15 @@ DigitalOcean Spaces and MinIO all work. Leave `S3_ENDPOINT` unset for AWS.
 `S3_PUBLIC_BASE_URL` is the public prefix stored with each file, so the bucket
 must allow public reads.
 
+
+Clips uploaded before any of this existed had nobody to ask, so their files
+were read over the network with `ffprobe` and the answers written into
+`migrations/0012_backfill_display_ratio.sql` — 151 of them. It runs as a
+migration rather than as a data import because importing only knows how to
+add rows, and this corrects rows that already exist. It touches only rows
+with no frame yet, so a choice made by hand outranks it and re-running it
+changes nothing.
+
 ### One address per page
 
 Both `www` and the bare domain resolve to this process, and both used to be
