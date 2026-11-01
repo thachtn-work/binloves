@@ -43,6 +43,7 @@ export class MediaService {
         url: this.storage.buildPublicUrl(dto.key),
         mediaType: dto.mediaType,
         filename: dto.filename,
+        displayRatio: dto.displayRatio ?? null,
       },
     });
   }
@@ -58,6 +59,7 @@ export class MediaService {
       url: this.storage.buildPublicUrl(f.key),
       mediaType: f.mediaType,
       filename: f.filename,
+      displayRatio: f.displayRatio ?? null,
     }));
     await this.prisma.media.createMany({ data: rows });
     return this.prisma.media.findMany({
@@ -88,6 +90,10 @@ export class MediaService {
         // not turn a deliberate cancel into an error the owner has to read.
       }
     }
+  }
+
+  setRatio(id: string, displayRatio: string) {
+    return this.prisma.media.update({ where: { id }, data: { displayRatio } });
   }
 
   // Reported to the admin UI so a shop owner can see why a file can't be

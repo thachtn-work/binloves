@@ -154,6 +154,13 @@ model Media {
   url       String
   mediaType String
   filename  String
+
+  /// "16:9" | "9:16" | "1:1", or null for the square the gallery has always
+  /// drawn. Phone footage is vertical and was being letterboxed into a narrow
+  /// strip; this is what the frame should be, which is not always what the
+  /// file is — a vertical clip may still be wanted in a square frame.
+  displayRatio String?
+
   createdAt DateTime @default(now())
 
   products     ProductMedia[]

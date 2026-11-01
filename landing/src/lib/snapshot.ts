@@ -8,6 +8,12 @@ export type MediaKind = 'image' | 'video';
 export interface MediaItem {
   url: string;
   mediaType: MediaKind;
+  /**
+   * "16:9" | "9:16" | "1:1", or null for the square frame the gallery has
+   * always drawn. Set per file, because a product can hold a photo and a clip
+   * filmed sideways in the same strip.
+   */
+  displayRatio?: string | null;
 }
 
 export interface Category {

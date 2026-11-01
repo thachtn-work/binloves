@@ -201,6 +201,32 @@ cd backend && node dist/main.js     # serves /, /admin and /api/v1 on 3000
 
 ## Photos and video
 
+### The frame a clip is drawn in
+
+The gallery was square for everything. The shop films product demos on a
+phone, so most clips are taller than they are wide and were being letterboxed
+into a narrow strip with black down both sides.
+
+`media.displayRatio` holds `16:9`, `9:16`, `1:1`, or null for that square —
+per file, not per product, because one product can hold photos and a clip
+filmed sideways in the same strip. Null renders exactly as everything did
+before, so nothing had to be filled in for the column to be added safely.
+
+It is the frame, not the file's shape. The two usually agree and the admin
+preselects the one that matches, reading the clip's own dimensions in the
+browser before it is uploaded — `videoWidth`/`videoHeight`, which have any
+rotation a phone recorded already applied, where the raw header would call a
+portrait clip landscape. The owner can still disagree: a vertical clip is
+allowed in a square frame if that is what suits the page.
+
+Two layout details hold it up. `.gallery` sets `align-items: start`, because a
+stretched grid item has a height of its own and that silently overrules
+`aspect-ratio` — a square photo beside a vertical clip would be pulled tall
+and cropped. And the mobile cap pins `width: 100%`, because a height ceiling
+meeting an aspect ratio pulls the *width* down instead, leaving the tall item
+narrower than the photos next to it.
+
+
 Uploads go **straight from the browser to S3-compatible storage**. The backend
 only signs an upload URL and records the metadata afterwards, so file bytes
 never pass through Node and memory stays flat regardless of upload size.

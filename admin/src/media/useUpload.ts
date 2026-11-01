@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
 import type { Media } from '../lib/types';
+import { detectRatio } from '../lib/ratio';
 
 interface PresignResult {
   uploadUrl: string;
@@ -223,11 +224,17 @@ export function useUpload() {
           throw err;
         }
 
+        // Asked of the files, not of the owner. Probed once the bytes are
+        // safely stored, so a slow or undecodable clip delays nothing that
+        // matters — it just arrives without an opinion about its frame.
+        const ratios = await Promise.all(small.map(detectRatio));
+
         const { data } = await api.post<Media[]>('/media/confirm', {
-          files: presigned.map((p) => ({
+          files: presigned.map((p, index) => ({
             key: p.key,
             filename: p.filename,
             mediaType: p.mediaType,
+            displayRatio: ratios[index] ?? undefined,
           })),
         });
         created.push(...data);
@@ -334,6 +341,7 @@ async function uploadInParts(
       uploadId: start.uploadId,
       filename: start.filename,
       mediaType: start.mediaType,
+      displayRatio: (await detectRatio(file)) ?? undefined,
     });
     return data;
   } catch (err) {

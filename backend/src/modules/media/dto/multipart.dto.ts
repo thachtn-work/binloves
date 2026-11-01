@@ -1,4 +1,14 @@
-import { IsIn, IsInt, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { DISPLAY_RATIOS, DisplayRatio } from './update-media-ratio.dto';
 import { ALLOWED_CONTENT_TYPES } from './presign-media.dto';
 import { MAX_UPLOAD_BYTES } from '../upload.constants';
 
@@ -39,6 +49,10 @@ export class CompleteMultipartDto {
 
   @IsIn(['image', 'video'])
   mediaType: 'image' | 'video';
+  @IsOptional()
+  @IsIn(DISPLAY_RATIOS)
+  displayRatio?: DisplayRatio;
+
 }
 
 export class AbortMultipartDto {

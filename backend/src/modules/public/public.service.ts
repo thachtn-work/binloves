@@ -76,7 +76,7 @@ export class PublicService {
             optionImages: { select: { value: true, media: { select: { url: true } } } },
             media: {
               orderBy: { sortOrder: 'asc' },
-              select: { media: { select: { url: true, mediaType: true } } },
+              select: { media: { select: { url: true, mediaType: true, displayRatio: true } } },
             },
             // Hidden rows are left out here rather than published and filtered
             // in the templates: a combination the owner has unticked is not
@@ -101,7 +101,7 @@ export class PublicService {
             id: true,
             title: true,
             linkUrl: true,
-            media: { select: { url: true, mediaType: true } },
+            media: { select: { url: true, mediaType: true, displayRatio: true } },
           },
         }),
         this.prisma.contactChannel.findMany({
@@ -132,7 +132,11 @@ export class PublicService {
         // cannot re-check, and shipping them would invite a second, divergent
         // copy of this rule in the templates.
         salePrice: live ? toNumber(p.salePrice) : null,
-        media: p.media.map((m) => ({ url: m.media.url, mediaType: m.media.mediaType })),
+        media: p.media.map((m) => ({
+          url: m.media.url,
+          mediaType: m.media.mediaType,
+          displayRatio: m.media.displayRatio,
+        })),
         // Flattened to the URL alone: the file is already in `media` above, and
         // the site only ever asks "which picture is this colour" — matching on
         // the URL is what lets it move that picture to the front of the gallery.

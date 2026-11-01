@@ -651,6 +651,13 @@ h3 {
   border-color: var(--border-strong);
 }
 
+/* While a choice is being saved. Without it a pressed chip looks identical
+   to a chip that simply did nothing. */
+.chip:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
 .chip.is-on {
   background: var(--accent);
   border-color: var(--accent);

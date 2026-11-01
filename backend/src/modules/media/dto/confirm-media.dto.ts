@@ -5,10 +5,12 @@ import {
   IsArray,
   IsIn,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { DISPLAY_RATIOS, DisplayRatio } from './update-media-ratio.dto';
 
 export class ConfirmFileDto {
   // Not merely a string: an empty key passes @IsString and produces a row that
@@ -26,6 +28,13 @@ export class ConfirmFileDto {
 
   @IsIn(['image', 'video'])
   mediaType: 'image' | 'video';
+
+  // Read off the file by the browser before it was sent. Optional because an
+  // image has no opinion and a clip the browser could not decode has none
+  // either; both land square, which is what the gallery drew before this.
+  @IsOptional()
+  @IsIn(DISPLAY_RATIOS)
+  displayRatio?: DisplayRatio;
 }
 
 export class ConfirmMediaDto {

@@ -71,6 +71,7 @@ function seed(): Db {
       key: `demo/${filename}`,
       url: img(seedName, w, h),
       mediaType: 'image',
+    displayRatio: null,
       filename,
       createdAt: new Date(2026, 9, 1 + (media.length % 20)).toISOString(),
     };
@@ -309,6 +310,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
           key: `demo/${uid()}`,
           publicUrl: img(uid()),
           mediaType: 'image',
+    displayRatio: null,
           filename: f.filename,
         })),
       );
@@ -321,6 +323,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
           key: f.key,
           url: img(uid()),
           mediaType: 'image',
+    displayRatio: null,
           filename: f.filename,
           createdAt: new Date().toISOString(),
         };

@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { UpdateMediaRatioDto } from './dto/update-media-ratio.dto';
 import { ConfirmMediaDto } from './dto/confirm-media.dto';
 import { PresignMediaDto } from './dto/presign-media.dto';
 import { AbortMultipartDto, CompleteMultipartDto, StartMultipartDto } from './dto/multipart.dto';
@@ -57,6 +68,13 @@ export class MediaController {
   @HttpCode(HttpStatus.NO_CONTENT)
   discard(@Body() dto: DiscardMediaDto) {
     return this.mediaService.discard(dto);
+  }
+
+  // Separate from the product it appears in: the frame belongs to the file,
+  // so a clip used by three products is corrected once.
+  @Patch(':id/ratio')
+  setRatio(@Param('id') id: string, @Body() dto: UpdateMediaRatioDto) {
+    return this.mediaService.setRatio(id, dto.displayRatio);
   }
 
   @Delete(':id')

@@ -15,6 +15,8 @@ export interface Media {
   url: string;
   mediaType: 'image' | 'video';
   filename: string;
+  /** "16:9" | "9:16" | "1:1", or null for the square frame the gallery draws. */
+  displayRatio: string | null;
   createdAt: string;
   /** How many products, banners and categories point at this file. Only the list sends it. */
   _count?: { products: number; banners: number; categories: number; collections: number };

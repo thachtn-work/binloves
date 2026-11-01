@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import ProductCard from '../../components/ProductCard.astro';
 import MediaFrame from '../../components/MediaFrame.astro';
-import { findChannel, priceDisplay, zaloLink } from '../../lib/format';
+import { findChannel, priceDisplay, ratioStyle, zaloLink } from '../../lib/format';
 import { getSnapshot } from '../../lib/snapshot';
 
 const { products, categories, contactChannels } = await getSnapshot();
@@ -70,7 +70,7 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
             product.media.map((item, index) => {
               const noun = item.mediaType === 'video' ? 'video' : 'ảnh';
               return (
-                <div class="media gallery-item" data-media-url={item.url}>
+                <div class="media gallery-item" style={ratioStyle(item.displayRatio)} data-media-url={item.url}>
                   <MediaFrame
                     item={item}
                     alt={`${product.name} — ${noun} ${index + 1}`}
@@ -401,10 +401,22 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
   .gallery {
     display: grid;
     gap: var(--space-3);
+    /*
+      Without this a grid item is stretched to the height of its row, and a
+      stretched box has a height of its own — which silently overrules
+      `aspect-ratio`. A square photo sharing a row with a vertical clip would
+      be pulled tall and cropped by `object-fit: cover`.
+    */
+    align-items: start;
   }
 
+  /*
+    Square unless the file says otherwise. Most of this shop's clips are
+    filmed on a phone and are taller than they are wide; drawing them in a
+    square left black down both sides and the picture small between them.
+  */
   .gallery-item {
-    aspect-ratio: 1;
+    aspect-ratio: var(--ratio, 1);
     border-radius: var(--radius);
     border: 1px solid var(--line);
   }
@@ -545,6 +557,20 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
 
     .gallery-item {
       scroll-snap-align: center;
+      /*
+        A 9:16 frame at 88% of a phone's width is taller than a small phone's
+        screen, which would put the Zalo button — the only thing to do on this
+        page — below two screens of scrolling.
+
+        `width: 100%` is what makes the cap behave. Without it the width is
+        indefinite, and a height ceiling meeting an aspect ratio pulls the
+        *width* down to match — the tall item came out narrower than the
+        photos beside it and sat off-centre in a strip that snaps to centre.
+        With the width pinned, the cap shortens the frame and the clip
+        letterboxes inside it instead, which is the lesser loss.
+      */
+      width: 100%;
+      max-height: 72vh;
     }
   }
 

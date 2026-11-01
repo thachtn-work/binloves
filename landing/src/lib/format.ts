@@ -113,3 +113,20 @@ export const CHANNEL_LABELS: Record<string, string> = {
   telegram: 'Telegram',
   email: 'Email',
 };
+
+/*
+  "9:16" is not a CSS value; `9 / 16` is. Returned as a custom property so the
+  stylesheet keeps the fallback in one place — a file with no opinion gets the
+  square the gallery drew before this existed, rather than a second copy of
+  that default sitting in the markup of every item.
+*/
+const RATIOS: Record<string, string> = {
+  '16:9': '16 / 9',
+  '9:16': '9 / 16',
+  '1:1': '1',
+};
+
+export function ratioStyle(ratio: string | null | undefined): string | undefined {
+  const value = ratio ? RATIOS[ratio] : undefined;
+  return value ? `--ratio: ${value}` : undefined;
+}

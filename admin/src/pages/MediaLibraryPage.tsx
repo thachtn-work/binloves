@@ -8,6 +8,7 @@ import { EditSurface } from '../components/EditSurface';
 import { ListSearch } from '../components/ListSearch';
 import { useUpload } from '../media/useUpload';
 import { MediaThumb } from '../media/MediaThumb';
+import { DISPLAY_RATIOS, RATIO_LABEL, type DisplayRatio } from '../lib/ratio';
 
 interface Usages {
   products: { id: string; name: string }[];
@@ -78,6 +79,18 @@ export function MediaLibraryPage() {
     queryKey: ['media', selected?.id, 'usages'],
     queryFn: async () => (await api.get<Usages>(`/media/${selected!.id}/usages`)).data,
     enabled: Boolean(selected),
+  });
+
+  const setRatio = useMutation({
+    mutationFn: async ({ id, displayRatio }: { id: string; displayRatio: DisplayRatio }) =>
+      (await api.patch<Media>(`/media/${id}/ratio`, { displayRatio })).data,
+    onSuccess: async (updated) => {
+      // The panel is showing this file right now, so it has to agree with the
+      // button that was just pressed without waiting for the list to refetch.
+      setSelected(updated);
+      await queryClient.invalidateQueries({ queryKey: ['media'] });
+    },
+    onError: (err) => setError(errorMessage(err)),
   });
 
   const remove = useMutation({
@@ -323,6 +336,38 @@ export function MediaLibraryPage() {
             <div className="mediapreview">
               <MediaThumb media={selected} />
             </div>
+
+            {/*
+              Only clips get a choice. A photo in this shop is square, and
+              offering three frames for one would be three ways to get the
+              product grid wrong.
+
+              Usually already correct: the browser reads the clip's own shape
+              when it is uploaded. This is for the times the owner wants
+              otherwise — a vertical clip shown square to keep a page tidy —
+              and for the clips that were here before any of this existed.
+            */}
+            {selected.mediaType === 'video' && (
+              <div className="field">
+                <span className="field__label">Khung hiển thị</span>
+                <div className="chips" role="group" aria-label="Khung hiển thị video">
+                  {DISPLAY_RATIOS.map((ratio) => (
+                    <button
+                      key={ratio}
+                      type="button"
+                      className={`chip ${(selected.displayRatio ?? '1:1') === ratio ? 'is-on' : ''}`}
+                      disabled={setRatio.isPending}
+                      onClick={() => setRatio.mutate({ id: selected.id, displayRatio: ratio })}
+                    >
+                      {RATIO_LABEL[ratio]} {ratio}
+                    </button>
+                  ))}
+                </div>
+                <p className="field__hint">
+                  Áp cho mọi nơi đang dùng tệp này. Ảnh luôn hiển thị vuông.
+                </p>
+              </div>
+            )}
 
             {loadingUsages ? (
               <p className="field__hint">Đang kiểm tra nơi đang dùng tệp này…</p>
