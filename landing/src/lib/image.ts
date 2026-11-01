@@ -19,8 +19,19 @@
 */
 const ON = (import.meta.env.IMAGE_TRANSFORM ?? process.env.IMAGE_TRANSFORM ?? '') !== '';
 
-/** Quality 80 is where these photos stop losing anything visible. */
-const OPTIONS = 'format=auto,quality=80,fit=scale-down';
+/*
+  Quality 80 is where these photos stop losing anything visible.
+
+  `onerror=redirect` is the part that matters most. The free allowance counts
+  distinct image-and-size pairs per month, not requests — a photo resized once
+  serves every visitor after that from cache — and this catalogue's ceiling is
+  about 2,900 against an allowance of 5,000. But "about" is doing work there:
+  the shop keeps adding products, and an image the resizer cannot handle has
+  always been possible. Without this, either case answers 404 and the page
+  loses the picture entirely; with it, the visitor is handed the original
+  file. Slower than it should be, which is the right way to fail.
+*/
+const OPTIONS = 'format=auto,quality=80,fit=scale-down,onerror=redirect';
 
 export function sized(url: string, width: number): string {
   if (!ON || !url) return url;
