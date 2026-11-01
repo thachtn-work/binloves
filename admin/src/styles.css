@@ -996,20 +996,31 @@ h3 {
 
 .chosen__bar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 2px;
   margin-top: 3px;
 }
 
-/* Sized to sit in the same row as the icon buttons beside it. */
+/*
+  Its own line under the buttons, never beside them.
+
+  Sharing the row made the control wider than the 86px tile it belongs to, so
+  every tile after the first clip was pushed sideways and no row of buttons
+  sat under its own picture any more. `order` rather than markup order so the
+  icons stay first, matching the tiles that have no clip to describe.
+*/
 .chosen__ratio {
+  order: 1;
+  flex-basis: 100%;
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--border-strong);
   background: var(--surface);
   border-radius: var(--radius-sm);
   color: var(--text);
   font-size: 11px;
-  padding: 0 4px;
-  max-width: 104px;
+  padding: 0 2px;
 }
 
 .chosen__ratio:disabled {
