@@ -13,6 +13,7 @@ import Footer from '../components/Footer.astro';
 import ContactDock from '../components/ContactDock.astro';
 import { getSnapshot } from '../lib/snapshot';
 import { asset } from '../lib/assets';
+import { siteOrigin } from '../lib/site';
 
 interface Props {
   title?: string;
@@ -26,19 +27,9 @@ const shopName = siteSettings.shopName ?? 'Cửa hàng';
 const pageTitle = title ? `${title} · ${shopName}` : `${shopName}${siteSettings.tagline ? ` · ${siteSettings.tagline}` : ''}`;
 const pageDescription = description ?? siteSettings.seoDescription ?? siteSettings.tagline ?? '';
 
-// Astro.url is the request as this process receives it, and the platform's
-// proxy rewrites the host to "localhost" before forwarding. That was invisible
-// while the site was built ahead of time — the URL came from the config then,
-// not from a request. Astro.site is no help either: the config is read during
-// `astro build`, so whatever SITE_URL holds at runtime never reaches it.
-// Hence: the configured origin first, then the host the proxy says the visitor
-// actually asked for, and only then the request as received.
-const forwardedHost = Astro.request.headers.get('x-forwarded-host');
-const forwardedProto = Astro.request.headers.get('x-forwarded-proto') ?? 'https';
-const origin =
-  process.env.SITE_URL ??
-  (forwardedHost ? `${forwardedProto}://${forwardedHost}` : Astro.url.origin);
-const canonical = new URL(Astro.url.pathname, origin).href;
+// Shared with robots.txt and the sitemap, which have to name the same host
+// this page is calling canonical.
+const canonical = new URL(Astro.url.pathname, siteOrigin(Astro.request, Astro.url)).href;
 
 /*
   Every photo on the page comes from one other host, and the browser cannot
