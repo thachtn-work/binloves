@@ -31,6 +31,53 @@ async function bootstrap() {
     }),
   );
 
+  /*
+    ---- One address per page ---------------------------------------------
+
+    Both www and the bare domain reach this process, and until now both were
+    answered in full — so every page existed at two addresses. DNS cannot fix
+    that: it only says which machine a name lives on, and has no way to say
+    "ask for this under another name". A redirect is an HTTP answer, so it has
+    to be given here.
+
+    It matters beyond tidiness. `localStorage` is scoped per host, and the
+    discreet-mode switch lives there — a visitor who turned it on at one
+    address would find the photos uncovered at the other, which is the worst
+    possible moment for that setting to be forgotten.
+
+    The target is derived by dropping the "www." rather than configured, so
+    the same code is right for every shop built from this repo. The guard
+    below is what makes that safe: if a shop ever decides www *is* its real
+    address, this stands aside instead of redirecting to itself forever.
+  */
+  const canonicalHost = (() => {
+    try {
+      return process.env.SITE_URL ? new URL(process.env.SITE_URL).host : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!canonicalHost?.startsWith('www.')) {
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      // A chain of proxies appends to this header, and the visitor's own host
+      // is the first entry.
+      const forwarded = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
+      const host = forwarded?.split(',')[0]?.trim();
+      if (!host?.startsWith('www.')) return next();
+
+      const proto = ((req.headers['x-forwarded-proto'] as string | undefined) ?? 'https')
+        .split(',')[0]
+        .trim();
+
+      // 301 for a reader, 308 for everything else: both are permanent, but a
+      // 301 lets a client turn a POST into a GET and drop its body, which
+      // would silently lose an admin's save.
+      const permanent = req.method === 'GET' || req.method === 'HEAD' ? 301 : 308;
+      res.redirect(permanent, `${proto}://${host.slice(4)}${req.originalUrl}`);
+    });
+  }
+
   // dist/main.js → backend/dist → backend → repo root
   const root = join(__dirname, '..', '..');
   const adminDir = join(root, 'admin', 'dist');

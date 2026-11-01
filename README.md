@@ -210,6 +210,24 @@ DigitalOcean Spaces and MinIO all work. Leave `S3_ENDPOINT` unset for AWS.
 `S3_PUBLIC_BASE_URL` is the public prefix stored with each file, so the bucket
 must allow public reads.
 
+### One address per page
+
+Both `www` and the bare domain resolve to this process, and both used to be
+answered in full, so every page existed at two addresses. DNS cannot fix that:
+it only says which machine a name lives on and has no way to say "ask for this
+under another name". The redirect is an HTTP answer, so it lives in
+`main.ts`, ahead of everything else.
+
+The reason is not only tidiness. `localStorage` is scoped per host and the
+discreet-mode switch lives there, so a visitor who turned it on at one address
+would find the photos uncovered at the other.
+
+The target is derived by dropping the `www.`, never configured, so the same
+code is right for any shop built from this repo. A shop whose `SITE_URL` *is*
+a `www` host disables it rather than redirecting to itself forever. Readers
+get a 301; anything else gets a 308, which keeps the method and body — a 301
+lets a client turn a POST into a GET and drop what an admin was saving.
+
 ### Search
 
 The header box is a plain GET to `/tim-kiem` and stays one if the script never
