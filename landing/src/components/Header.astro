@@ -2,6 +2,7 @@
 import type { Category, ContactChannel } from '../lib/snapshot';
 import { findChannel, zaloLink } from '../lib/format';
 import DiscreetToggle from './DiscreetToggle.astro';
+import SearchBox from './SearchBox.astro';
 
 interface Props {
   shopName: string;
@@ -20,17 +21,7 @@ const currentPath = Astro.url.pathname;
       <span>{shopName}</span>
     </a>
 
-    <form class="search" action="/tim-kiem" method="get" role="search">
-      <label for="q" class="sr-only">Tìm sản phẩm</label>
-      <input
-        type="search"
-        id="q"
-        name="q"
-        placeholder="Tìm sản phẩm…"
-        autocomplete="off"
-        enterkeyhint="search"
-      />
-    </form>
+    <SearchBox />
 
     <div class="header-actions">
       <DiscreetToggle />
@@ -93,31 +84,6 @@ const currentPath = Astro.url.pathname;
     font-weight: 500;
     letter-spacing: -0.02em;
     white-space: nowrap;
-  }
-
-  .search {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .search input {
-    width: 100%;
-    padding: var(--space-3) var(--space-4);
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    color: var(--text);
-    font-size: var(--text-sm);
-    transition: border-color 0.2s var(--ease);
-  }
-
-  .search input::placeholder {
-    color: var(--text-dim);
-  }
-
-  .search input:focus {
-    border-color: var(--indigo);
-    outline: none;
   }
 
   .header-actions {
@@ -191,11 +157,6 @@ const currentPath = Astro.url.pathname;
 
     .header-actions {
       margin-inline-start: auto;
-    }
-
-    .search {
-      order: 3;
-      flex-basis: 100%;
     }
 
     /*

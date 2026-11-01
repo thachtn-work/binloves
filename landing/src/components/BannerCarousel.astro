@@ -31,6 +31,7 @@ const noun = (banner: Banner) => (banner.media.mediaType === 'video' ? 'Xem vide
               width={900}
               height={600}
               eager={index === 0}
+              sizes="100vw"
               behaviour="banner"
             />
             {banner.title && <p class="slide-title">{banner.title}</p>}

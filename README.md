@@ -210,6 +210,37 @@ DigitalOcean Spaces and MinIO all work. Leave `S3_ENDPOINT` unset for AWS.
 `S3_PUBLIC_BASE_URL` is the public prefix stored with each file, so the bucket
 must allow public reads.
 
+### Search
+
+The header box is a plain GET to `/tim-kiem` and stays one if the script never
+runs. On top of that, `/tim-kiem.json` hands the browser the whole catalogue
+once — 262 products, about 22 KB compressed — and suggestions are matched
+locally from then on. A round trip per keystroke would cost more than the
+index does in total, answer slower, and put the API in the path of every
+letter typed.
+
+Matching folds accents away, because Vietnamese phone keyboards make them slow
+enough that people leave them off: "am dao" has to find "âm đạo". `đ` is
+handled separately from the rest, being a letter rather than a `d` with a mark
+on it, which NFD leaves alone. `src/lib/search.ts` holds that folding and is
+imported by both the endpoint that builds the index and the script that
+searches it — if the two ever disagreed, a typed word would miss a product
+whose name contains it.
+
+The dropdown reads names and categories; the search page also reads
+descriptions. So "Xem tất cả kết quả" is always the last row, whatever matched.
+
+### Image sizes
+
+Photos are served at whatever size they were uploaded at. A product card on a
+phone is 165px wide and the average upload is 145 KB, so the home page pulled
+4.8 MB of images where a few hundred KB would look identical.
+
+Setting `IMAGE_TRANSFORM` routes every `<img>` through the media host's own
+resizer and adds a 2x `srcset`. It is off by default and should stay off until
+transformations are enabled for that zone in the Cloudflare dashboard: the
+resized URLs 404 until then, which would empty the page rather than slow it.
+
 ### Two buckets, one of them frozen
 
 Each file's **absolute** URL is stored on its row, not rebuilt from the key at

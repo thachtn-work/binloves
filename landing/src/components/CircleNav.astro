@@ -1,4 +1,5 @@
 ---
+import { sized, srcSet } from '../lib/image';
 /*
   The round navigation the shop opens with. Written against the shape rather
   than against one entity: the homepage sends categories, and a category page
@@ -42,7 +43,9 @@ const { items, base, title } = Astro.props;
                 {item.coverUrl ? (
                   <img
                     class="media-el"
-                    src={item.coverUrl}
+                    src={sized(item.coverUrl, 160)}
+                    srcset={srcSet(item.coverUrl, 160)}
+                    sizes="80px"
                     alt=""
                     width="160"
                     height="160"

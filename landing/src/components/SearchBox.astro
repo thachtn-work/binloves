@@ -1,0 +1,377 @@
+---
+/*
+  A form first, suggestions second.
+
+  Without the script this is the plain GET it always was: type, press enter,
+  land on the search page. The dropdown is an accelerator laid on top — it can
+  fail to load, and the box still does its job.
+*/
+const query = Astro.url.pathname === '/tim-kiem' ? (Astro.url.searchParams.get('q') ?? '') : '';
+---
+
+<form class="search" action="/tim-kiem" method="get" role="search" data-search>
+  <label for="q" class="sr-only">Tìm sản phẩm</label>
+  <input
+    type="search"
+    id="q"
+    name="q"
+    value={query}
+    placeholder="Tìm sản phẩm…"
+    autocomplete="off"
+    enterkeyhint="search"
+    role="combobox"
+    aria-expanded="false"
+    aria-controls="search-suggestions"
+    aria-autocomplete="list"
+  />
+
+  <div class="panel" id="search-suggestions" role="listbox" aria-label="Gợi ý sản phẩm" hidden></div>
+</form>
+
+<style>
+  .search {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  .search input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    color: var(--text);
+    font-size: var(--text-sm);
+    transition: border-color 0.2s var(--ease);
+  }
+
+  .search input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .search input:focus {
+    border-color: var(--indigo);
+    outline: none;
+  }
+
+  /* Above the header it hangs from, and above the dock, which is the only
+     other thing on the page that floats. */
+  .panel {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + var(--space-2));
+    z-index: 70;
+    max-height: min(60vh, 460px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-2);
+  }
+
+  .panel[hidden] {
+    display: none;
+  }
+
+  /* Second line of the header on a phone, under the name and the two
+     buttons — it is the widest control and the one most often reached for. */
+  @media (max-width: 760px) {
+    .search {
+      order: 3;
+      flex-basis: 100%;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Rows are built by the script, so their styles cannot be scoped to this
+     component — Astro only marks up what it renders itself. */
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: start;
+    width: 100%;
+    background: none;
+    border: 0;
+  }
+
+  .search-row:hover,
+  .search-row.is-active {
+    background: var(--well);
+  }
+
+  .search-row__thumb {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    background: var(--well);
+  }
+
+  /*
+    Deliberately not blurred, even in discreet mode. A suggestion list only
+    appears while someone is typing into it, and blurring the four rows they
+    are reading would make the feature useless at the exact moment it is in
+    use. The grid behind the dropdown stays blurred.
+  */
+  .search-row__text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .search-row__name {
+    font-size: var(--text-sm);
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .search-row__meta {
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .search-row__price {
+    color: var(--indigo);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+
+  .search-all {
+    display: block;
+    width: 100%;
+    padding: var(--space-3) var(--space-2);
+    margin-top: var(--space-1, 4px);
+    border-top: 1px solid var(--line);
+    background: none;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    color: var(--indigo);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .search-all:hover,
+  .search-all.is-active {
+    background: var(--indigo-wash);
+  }
+
+  .search-empty {
+    padding: var(--space-4) var(--space-2);
+    text-align: center;
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+  }
+</style>
+
+<script>
+  import { searchKey } from '../lib/search';
+
+  interface Item {
+    s: string;
+    n: string;
+    k: string;
+    c: string;
+    p: string | null;
+    w: string | null;
+    t: string | null;
+  }
+
+  const MAX_ROWS = 6;
+
+  // One copy for the whole visit. Page transitions re-run this script but the
+  // module is evaluated once, so a second search costs nothing.
+  let index: Item[] | null = null;
+  let loading: Promise<Item[]> | null = null;
+
+  function load(): Promise<Item[]> {
+    if (index) return Promise.resolve(index);
+    loading ??= fetch('/tim-kiem.json')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Item[]) => (index = rows))
+      // A failed index is not a failed search box: the form still submits.
+      .catch(() => (index = []));
+    return loading;
+  }
+
+  /*
+    Every word has to appear somewhere, in any order — "rung trung" finds
+    "Trứng Rung". Ranking puts a name that starts with what was typed above a
+    name that merely contains it, because someone typing "trung" is usually
+    reaching for the thing called that rather than the thing that mentions it.
+  */
+  function search(items: Item[], raw: string) {
+    const key = searchKey(raw);
+    if (!key) return [];
+    const words = key.split(' ');
+
+    const scored: { item: Item; score: number }[] = [];
+    for (const item of items) {
+      if (!words.every((w) => item.k.includes(w))) continue;
+      const at = item.k.indexOf(key);
+      scored.push({ item, score: at === 0 ? 0 : at > 0 ? 1 : 2 });
+    }
+
+    scored.sort((a, b) => a.score - b.score || a.item.n.length - b.item.n.length);
+    return scored.slice(0, MAX_ROWS).map((s) => s.item);
+  }
+
+  function bind(form: HTMLFormElement) {
+    if (form.dataset.bound) return;
+    form.dataset.bound = 'true';
+
+    const input = form.querySelector<HTMLInputElement>('input[name="q"]')!;
+    const panel = form.querySelector<HTMLElement>('.panel')!;
+    let rows: HTMLElement[] = [];
+    let active = -1;
+
+    const close = () => {
+      panel.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      rows = [];
+      active = -1;
+    };
+
+    const highlight = (next: number) => {
+      rows[active]?.classList.remove('is-active');
+      active = next;
+      const row = rows[active];
+      if (!row) {
+        input.removeAttribute('aria-activedescendant');
+        return;
+      }
+      row.classList.add('is-active');
+      input.setAttribute('aria-activedescendant', row.id);
+      row.scrollIntoView({ block: 'nearest' });
+    };
+
+    const render = (items: Item[], term: string) => {
+      panel.textContent = '';
+
+      if (items.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'search-empty';
+        empty.textContent = 'Không có sản phẩm nào khớp. Thử từ ngắn hơn.';
+        panel.append(empty);
+      }
+
+      items.forEach((item, i) => {
+        const row = document.createElement('a');
+        row.className = 'search-row';
+        row.id = `search-row-${i}`;
+        row.role = 'option';
+        row.href = `/san-pham/${item.s}`;
+
+        if (item.t) {
+          const img = document.createElement('img');
+          img.className = 'search-row__thumb';
+          img.src = item.t;
+          img.alt = '';
+          img.loading = 'lazy';
+          img.width = 44;
+          img.height = 44;
+          row.append(img);
+        }
+
+        const text = document.createElement('span');
+        text.className = 'search-row__text';
+        const name = document.createElement('span');
+        name.className = 'search-row__name';
+        name.textContent = item.n;
+        text.append(name);
+        if (item.c) {
+          const meta = document.createElement('span');
+          meta.className = 'search-row__meta';
+          meta.textContent = item.c;
+          text.append(meta);
+        }
+        row.append(text);
+
+        if (item.p) {
+          const price = document.createElement('span');
+          price.className = 'search-row__price';
+          price.textContent = item.p;
+          row.append(price);
+        }
+
+        panel.append(row);
+      });
+
+      // Always offered, whatever matched: the dropdown searches names and
+      // categories only, while the search page also reads descriptions — so
+      // this is the way through to results the short list cannot show.
+      const all = document.createElement('button');
+      all.type = 'submit';
+      all.className = 'search-all';
+      all.id = `search-row-${items.length}`;
+      all.role = 'option';
+      all.textContent = `Xem tất cả kết quả cho "${term}"`;
+      panel.append(all);
+
+      rows = [...panel.querySelectorAll<HTMLElement>('.search-row, .search-all')];
+      active = -1;
+      panel.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      panel.scrollTop = 0;
+    };
+
+    const update = async () => {
+      const term = input.value.trim();
+      if (term.length < 2) return close();
+      render(search(await load(), term), term);
+    };
+
+    input.addEventListener('input', update);
+    input.addEventListener('focus', () => {
+      // Warm the index while they are still reaching for the first letter.
+      void load();
+      if (input.value.trim().length >= 2) void update();
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') return close();
+      if (panel.hidden || rows.length === 0) return;
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        highlight((active + 1) % rows.length);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        highlight((active - 1 + rows.length) % rows.length);
+      } else if (event.key === 'Enter' && active >= 0) {
+        // Only when a row is chosen. Otherwise the form submits as it always
+        // has, which is what someone pressing enter on their own words means.
+        event.preventDefault();
+        rows[active].click();
+      }
+    });
+
+    // `blur` would fire before a click on a row registers and take the row
+    // away from under the pointer.
+    document.addEventListener('pointerdown', (event) => {
+      if (!form.contains(event.target as Node)) close();
+    });
+  }
+
+  const bindAll = () =>
+    document.querySelectorAll<HTMLFormElement>('form[data-search]').forEach(bind);
+
+  bindAll();
+  document.addEventListener('astro:after-swap', bindAll);
+</script>

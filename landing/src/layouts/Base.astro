@@ -20,7 +20,7 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
-const { siteSettings, categories, contactChannels } = await getSnapshot();
+const { siteSettings, categories, contactChannels, banners } = await getSnapshot();
 
 const shopName = siteSettings.shopName ?? 'Cửa hàng';
 const pageTitle = title ? `${title} · ${shopName}` : `${shopName}${siteSettings.tagline ? ` · ${siteSettings.tagline}` : ''}`;
@@ -39,6 +39,24 @@ const origin =
   process.env.SITE_URL ??
   (forwardedHost ? `${forwardedProto}://${forwardedHost}` : Astro.url.origin);
 const canonical = new URL(Astro.url.pathname, origin).href;
+
+/*
+  Every photo on the page comes from one other host, and the browser cannot
+  know that until it has parsed the markup and met the first <img>. Opening
+  the connection alongside the document saves the DNS lookup and the TLS
+  handshake from the critical path of the first picture the visitor sees.
+
+  Read off the data rather than configured: the media host is wherever the
+  shop's files actually live, and this follows them if that ever moves again.
+*/
+const mediaOrigin = (() => {
+  const sample = banners[0]?.media.url ?? categories.find((c) => c.coverUrl)?.coverUrl;
+  try {
+    return sample ? new URL(sample).origin : null;
+  } catch {
+    return null;
+  }
+})();
 ---
 
 <!doctype html>
@@ -55,6 +73,14 @@ const canonical = new URL(Astro.url.pathname, origin).href;
     <link rel="icon" type="image/png" sizes="192x192" href={asset('/favicon.png')} />
     <link rel="apple-touch-icon" href={asset('/apple-touch-icon.png')} />
     <link rel="canonical" href={canonical} />
+    {
+      mediaOrigin && (
+        <>
+          <link rel="preconnect" href={mediaOrigin} crossorigin />
+          <link rel="dns-prefetch" href={mediaOrigin} />
+        </>
+      )
+    }
     <meta property="og:title" content={pageTitle} />
     {pageDescription && <meta property="og:description" content={pageDescription} />}
     <meta property="og:type" content="website" />

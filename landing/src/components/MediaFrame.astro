@@ -1,5 +1,6 @@
 ---
 import type { MediaItem } from '../lib/snapshot';
+import { sized, srcSet } from '../lib/image';
 
 interface Props {
   item: MediaItem;
@@ -9,6 +10,13 @@ interface Props {
   height: number;
   /** Eager-load only what is above the fold. */
   eager?: boolean;
+  /**
+   * How wide this will actually be drawn, in CSS terms — "(max-width: 560px)
+   * 50vw, 270px". Without it the browser assumes the image fills the window
+   * and picks the largest file on offer, which undoes the point of offering
+   * more than one.
+   */
+  sizes?: string;
   /**
    * How a video behaves here. Images ignore it.
    *
@@ -24,7 +32,7 @@ interface Props {
   behaviour?: 'cover' | 'full' | 'banner';
 }
 
-const { item, alt, width, height, eager = false, behaviour = 'cover' } = Astro.props;
+const { item, alt, width, height, eager = false, sizes, behaviour = 'cover' } = Astro.props;
 
 const isVideo = item.mediaType === 'video';
 
@@ -37,6 +45,13 @@ const isVideo = item.mediaType === 'video';
   the visitor's phone plan for nothing.
 */
 const src = isVideo ? `${item.url}#t=0.1` : item.url;
+
+/*
+  The few images worth loading first are worth saying so about. Left at the
+  default they queue behind the scripts and fonts the visitor is not looking
+  at, which on a shop means the first photo arrives after everything that
+  frames it.
+*/
 ---
 
 {
@@ -57,11 +72,14 @@ const src = isVideo ? `${item.url}#t=0.1` : item.url;
   ) : (
     <img
       class="media-el"
-      src={item.url}
+      src={sized(item.url, width)}
+      srcset={srcSet(item.url, width)}
+      sizes={sizes}
       alt={alt}
       width={width}
       height={height}
       loading={eager ? 'eager' : 'lazy'}
+      fetchpriority={eager ? 'high' : undefined}
       decoding="async"
     />
   )
