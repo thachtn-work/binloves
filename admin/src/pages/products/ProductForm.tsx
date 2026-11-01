@@ -250,7 +250,7 @@ export function ProductForm({ values, onChange, lockSlug = false }: Props) {
         title="Ảnh & video"
         hint="Mục đầu tiên là ảnh đại diện hiển thị ở trang chủ và danh mục."
       >
-        <MediaPicker value={values.mediaIds} onChange={(ids) => set('mediaIds', ids)} />
+        <MediaPicker value={values.mediaIds} onChange={(ids) => set('mediaIds', ids)} showRatio />
       </Fieldset>
 
       <VariantEditor

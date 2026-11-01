@@ -1,10 +1,11 @@
 import { useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Media } from '../lib/types';
 import { ConfirmDialog, Loading } from '../components/ui';
 import { useUpload } from './useUpload';
 import { MediaThumb } from './MediaThumb';
+import { DISPLAY_RATIOS, RATIO_LABEL, type DisplayRatio } from '../lib/ratio';
 
 const ACCEPT = {
   image: 'image/jpeg,image/png,image/webp,image/avif',
@@ -24,15 +25,38 @@ interface Props {
    * frame. Left out, both kinds are offered.
    */
   kind?: 'image' | 'video';
+  /**
+   * Offers each chosen clip the frame it will be drawn in.
+   *
+   * Only where that frame is the product gallery's to decide. A banner is
+   * drawn in the hero's own fixed shape whatever the file says, and the
+   * category and collection pickers are stills-only — a control that changed
+   * nothing visible would be worse than no control.
+   */
+  showRatio?: boolean;
 }
 
-export function MediaPicker({ value, onChange, multiple = true, kind }: Props) {
+export function MediaPicker({ value, onChange, multiple = true, kind, showRatio }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const { upload, cancel, uploading, progress, error, notice, confirmation } = useUpload();
+
+  const queryClient = useQueryClient();
 
   const { data: media, isLoading } = useQuery({
     queryKey: ['media'],
     queryFn: async () => (await api.get<Media[]>('/media')).data,
+  });
+
+  /*
+    Saved on its own, not with the product. The frame belongs to the file and
+    applies everywhere it appears, so holding it until Save would make it look
+    like a property of the product being edited — and would lose it if the
+    owner only came here to fix a clip.
+  */
+  const setRatio = useMutation({
+    mutationFn: async ({ id, displayRatio }: { id: string; displayRatio: DisplayRatio }) =>
+      api.patch(`/media/${id}/ratio`, { displayRatio }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] }),
   });
 
   const library = kind ? (media ?? []).filter((m) => m.mediaType === kind) : media ?? [];
@@ -80,6 +104,26 @@ export function MediaPicker({ value, onChange, multiple = true, kind }: Props) {
               <div className="chosen__item" key={m.id}>
                 <MediaThumb media={m} />
                 <div className="chosen__bar">
+                  {showRatio && m.mediaType === 'video' && (
+                    <select
+                      className="chosen__ratio"
+                      aria-label={`Khung hiển thị cho ${m.filename}`}
+                      value={m.displayRatio ?? '1:1'}
+                      disabled={setRatio.isPending}
+                      onChange={(e) =>
+                        setRatio.mutate({
+                          id: m.id,
+                          displayRatio: e.target.value as DisplayRatio,
+                        })
+                      }
+                    >
+                      {DISPLAY_RATIOS.map((ratio) => (
+                        <option key={ratio} value={ratio}>
+                          {RATIO_LABEL[ratio]} {ratio}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {multiple && (
                     <>
                       <button
