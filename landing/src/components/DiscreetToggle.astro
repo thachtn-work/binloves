@@ -11,8 +11,20 @@
   title="Làm mờ ảnh sản phẩm khi bạn đang ở nơi đông người"
 >
   <span class="dot" aria-hidden="true"></span>
-  <span class="discreet-toggle__label-off">Chế độ kín đáo</span>
-  <span class="discreet-toggle__label-on">Đang bật chế độ kín đáo</span>
+  {/*
+    Shortened rather than hidden on a phone. The control is a promise about
+    what the page will look like to anyone glancing over, and a bare dot with
+    no word next to it is not a promise anybody can read — it would be the one
+    button on the page whose purpose has to be guessed.
+  */}
+  <span class="discreet-toggle__label-off">
+    <span class="dt-full">Chế độ kín đáo</span>
+    <span class="dt-short">Kín đáo</span>
+  </span>
+  <span class="discreet-toggle__label-on">
+    <span class="dt-full">Đang bật chế độ kín đáo</span>
+    <span class="dt-short">Đang bật</span>
+  </span>
 </button>
 
 <script>

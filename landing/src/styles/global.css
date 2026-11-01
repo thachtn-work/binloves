@@ -172,6 +172,29 @@ p {
   gap: var(--space-5);
 }
 
+/* Two to a row on a phone, which is what every shop a customer already uses
+   does. At one per row a 230px card stretched to the full 342px of a phone,
+   so a screen held one product and the catalogue became a scroll with no
+   shape to it — the eye needs a second column to compare against. */
+@media (max-width: 560px) {
+  .grid-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4) var(--space-3);
+  }
+
+  /* A homepage shelf is a sample, not the aisle. Eight of them on a phone put
+     112 products on the front page and made it 49,000px tall; four is two
+     rows, enough to show what the shelf is about, and "Xem tất cả" is right
+     there for anyone who wants the rest.
+
+     Hidden rather than not rendered because the count has to stay right on a
+     wider screen, and the cards past the fourth are lazy — a browser never
+     fetches a photo for a card it is not displaying. */
+  .shelf-grid > :nth-child(n + 5) {
+    display: none;
+  }
+}
+
 .empty-state {
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius);

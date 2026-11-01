@@ -19,7 +19,20 @@ const { contactChannels } = Astro.props;
   one they want reached first can be put first.
 */
 const DOCKED_TYPES = ['zalo', 'messenger', 'telegram', 'phone'];
-const docked = contactChannels.filter((c) => DOCKED_TYPES.includes(c.type));
+
+/*
+  One button per kind. A shop with two phone numbers was getting two identical
+  green discs stacked on top of each other — nothing on the screen said which
+  was which, so the pair read as a bug rather than a choice. The dock is for
+  reaching the shop the quickest way; the footer lists every number for anyone
+  who wants to pick.
+*/
+const seen = new Set<string>();
+const docked = contactChannels.filter((c) => {
+  if (!DOCKED_TYPES.includes(c.type) || seen.has(c.type)) return false;
+  seen.add(c.type);
+  return true;
+});
 
 /*
   Each service's own colour, because these buttons stand for someone else's
@@ -197,8 +210,16 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
     }
   }
 
+  /*
+    Laid out along the bottom on a phone rather than down the side. A column
+    of four discs on the right edge sat over the right-hand column of products
+    for its whole height — on a two-column grid that is a quarter of every
+    screen permanently covered. A row hides a strip at the very bottom
+    instead, which is also where a thumb already is.
+  */
   @media (max-width: 760px) {
     .dock {
+      flex-direction: row;
       inset-block-end: var(--space-3);
       inset-inline-end: var(--space-3);
       gap: var(--space-2);
@@ -212,6 +233,12 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
     .dock-btn svg {
       width: 26px;
       height: 26px;
+    }
+
+    /* So the last thing on the page can still be scrolled out from under the
+       row — without this the footer's final line is unreachable. */
+    :global(body) {
+      padding-block-end: 70px;
     }
   }
 </style>

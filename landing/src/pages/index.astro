@@ -41,7 +41,7 @@ const fallbackProducts = shelves.length === 0 ? products.slice(0, 12) : [];
   <CircleNav items={categories} base="/danh-muc" title="Danh mục sản phẩm" />
 
   {
-    shelves.map(({ collection, items }) => (
+    shelves.map(({ collection, items }, shelfIndex) => (
       <section class="shell shelf">
         <div class="section-head">
           <div>
@@ -53,9 +53,16 @@ const fallbackProducts = shelves.length === 0 ? products.slice(0, 12) : [];
           </a>
         </div>
 
-        <div class="grid-products">
+        <div class="grid-products shelf-grid">
+          {/*
+            Only the first shelf loads its photos up front. Every shelf asking
+            for four eager images meant 56 of them racing on a page where the
+            first screen is a banner and one row of products — the other 52
+            competed with the ones the visitor was actually looking at. The
+            rest are lazy and arrive as they are scrolled to.
+          */}
           {items.slice(0, 8).map((product, i) => (
-            <ProductCard product={product} priority={i < 4} />
+            <ProductCard product={product} priority={shelfIndex === 0 && i < 4} />
           ))}
         </div>
       </section>

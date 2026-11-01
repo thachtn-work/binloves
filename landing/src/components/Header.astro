@@ -43,24 +43,29 @@ const currentPath = Astro.url.pathname;
       }
     </div>
   </div>
-
-  {
-    categories.length > 0 && (
-      <nav class="catnav" aria-label="Danh mục sản phẩm">
-        <div class="shell catnav-inner">
-          {categories.map((c) => (
-            <a
-              href={`/danh-muc/${c.slug}`}
-              class:list={['catnav-link', { 'is-active': currentPath === `/danh-muc/${c.slug}` }]}
-            >
-              {c.name}
-            </a>
-          ))}
-        </div>
-      </nav>
-    )
-  }
 </header>
+
+{/*
+  Outside the sticky header on purpose. `position: sticky` is bounded by its
+  own parent, so a strip that needs to stop being pinned on a phone cannot
+  simply opt out from inside one — it has to not be in there.
+*/}
+{
+  categories.length > 0 && (
+    <nav class="catnav" aria-label="Danh mục sản phẩm">
+      <div class="shell catnav-inner">
+        {categories.map((c) => (
+          <a
+            href={`/danh-muc/${c.slug}`}
+            class:list={['catnav-link', { 'is-active': currentPath === `/danh-muc/${c.slug}` }]}
+          >
+            {c.name}
+          </a>
+        ))}
+      </div>
+    </nav>
+  )
+}
 
 <style>
   .site-header {
@@ -121,10 +126,24 @@ const currentPath = Astro.url.pathname;
     gap: var(--space-3);
   }
 
+  /* Sticks under the bar above it, which is why its own `top` is the bar's
+     height rather than 0. The height is measured rather than guessed: it
+     follows the font size and the Zalo button, and a wrong constant here
+     would show as a sliver of page between the two pinned strips. */
   .catnav {
+    position: sticky;
+    top: var(--header-h, 0px);
+    z-index: 49;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
     overflow-x: auto;
     scrollbar-width: none;
+    /* The strip is wider than any screen and has no scrollbar, so the last
+       name sat cut in half with nothing to say it could be dragged. Fading
+       the edge is that signal: a word dissolving reads as "more over here"
+       where a hard crop reads as a mistake. */
+    mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
   }
 
   .catnav::-webkit-scrollbar {
@@ -158,16 +177,53 @@ const currentPath = Astro.url.pathname;
   @media (max-width: 760px) {
     .header-inner {
       flex-wrap: wrap;
-      gap: var(--space-3);
+      gap: var(--space-2) var(--space-3);
+      padding-block: var(--space-3);
     }
 
+    /* Name, the discreet control and Zalo share the first line; search takes
+       the second. Giving the wordmark `flex: 1` used to push the other two
+       onto a line of their own, so the header stood three rows tall and ate
+       most of a phone screen before the shop appeared. */
     .wordmark {
-      flex: 1;
+      font-size: var(--text-lg);
+    }
+
+    .header-actions {
+      margin-inline-start: auto;
     }
 
     .search {
       order: 3;
       flex-basis: 100%;
     }
+
+    /*
+      The category strip stops being pinned. It is wider than a phone and has
+      to be scrolled sideways, which is awkward enough without it also holding
+      a fifth of the screen on every page — it scrolls away with the content
+      now, while the bar above it stays.
+    */
+    .catnav {
+      position: static;
+      border-top: 0;
+      border-bottom: 1px solid var(--line);
+    }
   }
 </style>
+
+<script>
+  // The category strip pins itself directly under the bar above it, and only
+  // the browser knows how tall that bar ended up — it follows the font and
+  // the Zalo button. Published as a custom property so the CSS can stay
+  // declarative instead of a constant that drifts the next time either moves.
+  function measure() {
+    const header = document.querySelector<HTMLElement>('.site-header');
+    if (!header) return;
+    document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
+  }
+
+  measure();
+  addEventListener('resize', measure);
+  document.addEventListener('astro:after-swap', measure);
+</script>

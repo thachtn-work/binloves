@@ -185,3 +185,17 @@
 :root[data-discreet='on'] .discreet-toggle__label-off {
   display: none;
 }
+
+.dt-short {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .dt-full {
+    display: none;
+  }
+
+  .dt-short {
+    display: inline;
+  }
+}
