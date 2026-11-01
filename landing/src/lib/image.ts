@@ -20,6 +20,19 @@
 const ON = (import.meta.env.IMAGE_TRANSFORM ?? process.env.IMAGE_TRANSFORM ?? '') !== '';
 
 /*
+  Said once at startup, because the alternative is a switch that fails in
+  silence. Unset, mistyped or saved with an empty value all look identical
+  from outside — the pages render perfectly, just several times heavier than
+  they should be, and nothing anywhere says why. One line in the log turns
+  that into a question with an answer.
+*/
+console.log(
+  ON
+    ? '[image] IMAGE_TRANSFORM on — asking the media host to resize'
+    : '[image] IMAGE_TRANSFORM unset — serving photos at their uploaded size',
+);
+
+/*
   Quality 80 is where these photos stop losing anything visible.
 
   `onerror=redirect` is the part that matters most. The free allowance counts
