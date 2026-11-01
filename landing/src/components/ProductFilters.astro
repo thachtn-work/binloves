@@ -36,7 +36,7 @@ const BUCKETS = [
 ];
 ---
 
-<div class="tools" data-tools>
+<div class:list={['tools', { 'tools--searchable': searchable }]} data-tools>
   {
     searchable && (
       <form class="tools-search" role="search" data-search-form>
@@ -56,7 +56,7 @@ const BUCKETS = [
   }
 
   <div class="tools-row">
-    <div class="tools-group">
+    <div class="tools-group tools-group--sort">
       <label class="tools-label" for="sort-by">Sắp xếp</label>
       <select id="sort-by" class="tools-select" data-sort>
         <option value="default">Mặc định</option>
@@ -65,7 +65,7 @@ const BUCKETS = [
       </select>
     </div>
 
-    <div class="tools-group">
+    <div class="tools-group tools-group--range" data-range>
       <span class="tools-label" id="price-label">Khoảng giá</span>
       <div class="tools-range" role="group" aria-labelledby="price-label">
         <input
@@ -96,6 +96,16 @@ const BUCKETS = [
           </button>
         ))
       }
+
+      {/*
+        The way into the two number fields on a phone, where they are folded
+        away by default. They are the slow path there — four taps against a
+        keypad and two guesses at what a reasonable bound is — so they wait
+        until someone asks, and the buckets get the room instead.
+      */}
+      <button type="button" class="bucket bucket--custom" data-custom aria-expanded="false">
+        Tự nhập
+      </button>
     </div>
 
     <button type="button" class="tools-clear" data-clear hidden>Xoá lọc</button>
@@ -225,13 +235,136 @@ const BUCKETS = [
     font-size: var(--text-sm);
   }
 
+  /* The chip only exists for the phone layout. */
+  .bucket--custom {
+    display: none;
+  }
+
+  /*
+    Two rows on a phone instead of five.
+
+    Sort, count and clear share the first; the price buckets take the second
+    and scroll sideways rather than wrapping. The typed range is folded behind
+    the "Tự nhập" chip — on a page where the first product should be visible
+    without scrolling, four price controls stacked above it were costing more
+    than they were worth.
+  */
   @media (max-width: 640px) {
-    .tools-row {
+    .tools {
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
       gap: var(--space-3);
     }
 
+    /* The row is only a box for desktop; here its children sit directly in
+       the grid above, which is what lets the count share their line. */
+    .tools-row {
+      display: contents;
+    }
+
+    /*
+      Rows are placed by hand rather than left to auto-placement: the count and
+      the clear button have to land beside the sort control, and nothing in
+      source order puts them there. The keyword box exists on the search page
+      only, so everything below it shifts down a row when it is present —
+      otherwise it would take row one and push the rest out of formation.
+    */
+    .tools-search {
+      grid-row: 1;
+      grid-column: 1 / -1;
+    }
+
+    .tools-group--sort {
+      grid-row: 1;
+      grid-column: 1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .tools-count {
+      grid-row: 1;
+      grid-column: 2;
+      justify-self: start;
+      font-size: var(--text-xs);
+    }
+
+    .tools-clear {
+      grid-row: 1;
+      grid-column: 3;
+      justify-self: end;
+      height: auto;
+      font-size: var(--text-xs);
+    }
+
+    /* Bleeds to both edges so the last bucket is cut by the screen rather
+       than by the gutter, which is what makes it read as scrollable. */
+    .tools-buckets {
+      grid-row: 2;
+      grid-column: 1 / -1;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-inline: calc(var(--space-5) * -1);
+      padding-inline: var(--space-5);
+      mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    }
+
+    .tools-buckets::-webkit-scrollbar {
+      display: none;
+    }
+
+    .bucket {
+      flex: none;
+    }
+
+    /* `:not([hidden])` is load-bearing: a plain `display: block` here outranks
+       the browser's own rule for the hidden attribute, so the chip would stay
+       on screen after opening the fields it was meant to reveal. */
+    .bucket--custom:not([hidden]) {
+      display: block;
+    }
+
+    .tools-group--range {
+      grid-row: 3;
+      grid-column: 1 / -1;
+      display: none;
+    }
+
+    .tools--searchable .tools-group--sort,
+    .tools--searchable .tools-count,
+    .tools--searchable .tools-clear {
+      grid-row: 2;
+    }
+
+    .tools--searchable .tools-buckets {
+      grid-row: 3;
+    }
+
+    .tools--searchable .tools-group--range {
+      grid-row: 4;
+    }
+
+    .tools-group--range.is-open {
+      display: grid;
+      /* A grid item's floor is the width of its content, and two text inputs
+         plus a dash is wider than a phone — without this the second field
+         hangs off the right edge. */
+      min-width: 0;
+    }
+
+    .tools-group--range .tools-range {
+      min-width: 0;
+    }
+
+    .tools-group--range .tools-label {
+      display: none;
+    }
+
     .tools-price {
-      width: 92px;
+      flex: 1;
+      width: auto;
+      min-width: 0;
     }
   }
 </style>
@@ -270,6 +403,8 @@ const BUCKETS = [
     const countEl = tools.querySelector<HTMLElement>('[data-count]');
     const clearEl = tools.querySelector<HTMLButtonElement>('[data-clear]');
     const buckets = Array.from(tools.querySelectorAll<HTMLButtonElement>('[data-bucket]'));
+    const customEl = tools.querySelector<HTMLButtonElement>('[data-custom]');
+    const rangeEl = tools.querySelector<HTMLElement>('[data-range]');
     const noResults = document.querySelector<HTMLElement>('[data-no-results]');
     if (items.length === 0) return;
 
@@ -341,6 +476,19 @@ const BUCKETS = [
     searchEl?.addEventListener('input', run);
     tools.querySelector('[data-search-form]')?.addEventListener('submit', (e) => e.preventDefault());
 
+    /*
+      Opening the typed range is a one-way door on purpose. Someone who has
+      asked for it has a number in mind; collapsing it again on the next tap
+      would take the field away mid-thought, and "Xoá lọc" already puts the
+      panel back the way it was.
+    */
+    customEl?.addEventListener('click', () => {
+      rangeEl?.classList.add('is-open');
+      customEl.setAttribute('aria-expanded', 'true');
+      customEl.hidden = true;
+      minEl?.focus();
+    });
+
     for (const b of buckets) {
       b.addEventListener('click', () => {
         const already = b.classList.contains('is-on');
@@ -355,6 +503,10 @@ const BUCKETS = [
       if (maxEl) maxEl.value = '';
       if (searchEl) searchEl.value = '';
       if (sortEl) sortEl.value = 'default';
+      // Puts the panel back to the shape it had on arrival, typed range and all.
+      rangeEl?.classList.remove('is-open');
+      customEl?.setAttribute('aria-expanded', 'false');
+      if (customEl) customEl.hidden = false;
       run();
     });
 
