@@ -17,7 +17,16 @@
 export function siteOrigin(request: Request, url: URL): string {
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-  return (
-    process.env.SITE_URL ?? (forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin)
-  );
+  const origin =
+    process.env.SITE_URL ?? (forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin);
+
+  /*
+    Trailing slash stripped, because SITE_URL is typed by a person into a
+    dashboard and one of the two shops has it ending in "/". Anything that
+    joins a path on by concatenation then emits "https://shop.example//page",
+    which serves the same page at a second address — so the sitemap would be
+    listing URLs that contradict the canonical tag on every one of them, which
+    is the exact confusion a sitemap exists to prevent.
+  */
+  return origin.replace(/\/+$/, '');
 }
