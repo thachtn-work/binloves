@@ -1,8 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import ProductCard from '../../components/ProductCard.astro';
-import MediaFrame from '../../components/MediaFrame.astro';
-import { findChannel, priceDisplay, ratioStyle, zaloLink } from '../../lib/format';
+import ProductGallery from '../../components/ProductGallery.astro';
+import { findChannel, priceDisplay, zaloLink } from '../../lib/format';
 import { getSnapshot } from '../../lib/snapshot';
 
 const { products, categories, contactChannels } = await getSnapshot();
@@ -64,35 +64,7 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
     </nav>
 
     <div class="layout">
-      <div class="gallery">
-        {
-          product.media.length > 0 ? (
-            product.media.map((item, index) => {
-              const noun = item.mediaType === 'video' ? 'video' : 'ảnh';
-              return (
-                <div class="media gallery-item" style={ratioStyle(item.displayRatio)} data-media-url={item.url}>
-                  <MediaFrame
-                    item={item}
-                    alt={`${product.name} — ${noun} ${index + 1}`}
-                    width={800}
-                    height={800}
-                    eager={index === 0}
-                    sizes="(max-width: 900px) 100vw, 560px"
-                    behaviour="full"
-                  />
-                  <button type="button" class="reveal-btn" aria-label={`Xem ${noun}`}>
-                    Xem {noun}
-                  </button>
-                </div>
-              );
-            })
-          ) : (
-            <div class="media gallery-item">
-              <div class="placeholder" aria-hidden="true" />
-            </div>
-          )
-        }
-      </div>
+      <ProductGallery media={product.media} name={product.name} />
 
       <div class="info">
         <div class="info-sticky">
@@ -259,10 +231,9 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
     const offEl = document.querySelector<HTMLElement>('[data-price-off]')!;
     const stockEl = document.querySelector<HTMLElement>('[data-stock]')!;
     const cta = document.querySelector<HTMLAnchorElement>('[data-cta]');
-    const galleryItems = [...document.querySelectorAll<HTMLElement>('.gallery-item[data-media-url]')];
+    const gallery = document.querySelector<HTMLElement>('[data-gallery]');
     // '1', '2', or absent when no group carries photos.
     const imageGroup = root.dataset.imageGroup ?? null;
-    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     // The product's own label, shown until a single combination is in play.
     const fallbackStock = stockEl.textContent?.trim() ?? '';
 
@@ -330,27 +301,20 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
     /**
      * Brings the photo that stands for the chosen value into view.
      *
-     * Scrolls rather than rearranges. On a phone the gallery is a snapping
-     * horizontal carousel sitting directly above these chips; on a desktop it
-     * is a column beside a sticky panel. One scrollIntoView does the right
-     * thing in both, and neither layout shifts under a finger that is already
-     * on the page — moving the picture to the front would reflow the column
-     * and push whatever the visitor was reading.
+     * Asks the gallery by url and lets it work out which slide that is. Moving
+     * the carousel rather than rearranging it means nothing on the page
+     * changes height under a finger that is already scrolling, and the chips
+     * stay where the visitor left them.
      *
-     * Only ever called from a click. Running it on first paint would scroll
-     * the page before the visitor had touched anything.
+     * Only ever called from a click. Running it on first paint would move the
+     * gallery before the visitor had touched anything.
      */
     function showPhotoFor(group: string, value: string | null) {
-      if (group !== imageGroup || value === null) return;
+      if (group !== imageGroup || value === null || !gallery) return;
       const chip = chips.find((c) => c.dataset.group === group && c.dataset.value === value);
       const url = chip?.dataset.image;
       if (!url) return;
-      const item = galleryItems.find((el) => el.dataset.mediaUrl === url);
-      item?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'nearest',
-        inline: 'center',
-      });
+      gallery.dispatchEvent(new CustomEvent('gallery:show', { detail: { url } }));
     }
 
     for (const chip of chips) {
@@ -396,35 +360,6 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: var(--space-7);
     align-items: start;
-  }
-
-  .gallery {
-    display: grid;
-    gap: var(--space-3);
-    /*
-      Without this a grid item is stretched to the height of its row, and a
-      stretched box has a height of its own — which silently overrules
-      `aspect-ratio`. A square photo sharing a row with a vertical clip would
-      be pulled tall and cropped by `object-fit: cover`.
-    */
-    align-items: start;
-  }
-
-  /*
-    Square unless the file says otherwise. Most of this shop's clips are
-    filmed on a phone and are taller than they are wide; drawing them in a
-    square left black down both sides and the picture small between them.
-  */
-  .gallery-item {
-    aspect-ratio: var(--ratio, 1);
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-  }
-
-  .placeholder {
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, var(--card), var(--well));
   }
 
   .info-sticky {
@@ -532,45 +467,6 @@ const enquiry = `Chào shop, mình quan tâm sản phẩm: ${product.name}${
 
     .info-sticky {
       position: static;
-    }
-
-    /*
-      Stacked full-width images would push the Zalo button — the only
-      conversion point on this page — below three screens of scrolling on a
-      phone, which is how most of this shop's customers browse. Swiping
-      sideways keeps the gallery to one screen so the button sits just under
-      it. The peek of the next image is what signals it can be swiped.
-    */
-    .gallery {
-      grid-auto-flow: column;
-      grid-auto-columns: 88%;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scrollbar-width: none;
-      margin-inline: calc(var(--space-5) * -1);
-      padding-inline: var(--space-5);
-    }
-
-    .gallery::-webkit-scrollbar {
-      display: none;
-    }
-
-    .gallery-item {
-      scroll-snap-align: center;
-      /*
-        A 9:16 frame at 88% of a phone's width is taller than a small phone's
-        screen, which would put the Zalo button — the only thing to do on this
-        page — below two screens of scrolling.
-
-        `width: 100%` is what makes the cap behave. Without it the width is
-        indefinite, and a height ceiling meeting an aspect ratio pulls the
-        *width* down to match — the tall item came out narrower than the
-        photos beside it and sat off-centre in a strip that snaps to centre.
-        With the width pinned, the cap shortens the frame and the clip
-        letterboxes inside it instead, which is the lesser loss.
-      */
-      width: 100%;
-      max-height: 72vh;
     }
   }
 
