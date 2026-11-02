@@ -113,14 +113,12 @@ const { items, base, title } = Astro.props;
     max-width: 140px;
     aspect-ratio: 1;
     /*
-      The rim is a border rather than padding, and that is the whole of it:
-      `overflow: hidden` clips at the inside of a border but at the outside of
-      padding. With discreet mode on the photo is blurred 18px, and padding let
-      that blur spill across the rim — the dark covers came out as smudges with
-      no edge at all, which is the one thing this shape has to keep. A border
-      clips it back to its own circle and the disc stays a disc.
+      No rim: the photo runs to the edge of the disc. `overflow: hidden` then
+      clips at the circle itself, which also keeps the 18px blur of discreet
+      mode inside it — the edge stays cut, not smudged. The white underneath
+      is what a coverless category shows, and what a photo with a transparent
+      corner sits on.
     */
-    border: 6px solid var(--card);
     border-radius: 50%;
     box-shadow: var(--shadow-md);
     transition: box-shadow 0.25s var(--ease);
