@@ -1,6 +1,6 @@
 ---
-import type { ContactChannel } from '../lib/snapshot';
-import { CHANNEL_LABELS, channelHref } from '../lib/format';
+import type { Category, ContactChannel } from '../lib/snapshot';
+import { CHANNEL_LABELS, channelDisplay, channelHref } from '../lib/format';
 
 interface Props {
   shopName: string;
@@ -8,10 +8,20 @@ interface Props {
   address: string | null;
   businessHours: string | null;
   contactChannels: ContactChannel[];
+  categories: Category[];
 }
 
-const { shopName, tagline, address, businessHours, contactChannels } = Astro.props;
+const { shopName, tagline, address, businessHours, contactChannels, categories } = Astro.props;
 const year = new Date().getFullYear();
+
+/*
+  Eight at most. The shop has fourteen categories and the header already
+  carries every one of them — repeating the whole list down here would make
+  the footer taller than the page it ends, for a second copy of navigation
+  nobody scrolled this far to find. These are a way back into the catalogue
+  for someone who reached the bottom, not an index.
+*/
+const linked = categories.slice(0, 8);
 ---
 
 <footer class="site-footer">
@@ -19,37 +29,77 @@ const year = new Date().getFullYear();
     <div class="footer-brand">
       <p class="wordmark">{shopName}</p>
       {tagline && <p class="tagline">{tagline}</p>}
+
+      {/*
+        Moved up out of the fine print. This is the one thing this shop
+        promises that a customer is actually weighing before they buy, and it
+        was set at the smallest size on the page between a copyright notice
+        and a credit line. The frame is the page's own pressed-in style, not
+        a badge borrowed from somewhere else.
+      */}
+      <p class="promise">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+            d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9Z"
+          />
+          <path fill="none" stroke="currentColor" stroke-width="1.6" d="m3.5 7.5 8.5 4 8.5-4M12 11.5v9" />
+        </svg>
+        Đóng gói kín, không in tên sản phẩm trên bao bì
+      </p>
     </div>
 
     {
-      contactChannels.length > 0 && (
-        <div class="footer-col">
-          <p class="eyebrow">Liên hệ</p>
-          <ul>
+      linked.length > 0 && (
+        <nav class="footer-col" aria-label="Danh mục sản phẩm">
+          <p class="footer-head">Danh mục</p>
+          <ul class="cat-list">
+            {linked.map((c) => (
+              <li>
+                <a href={`/danh-muc/${c.slug}`}>{c.name}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+
+    <div class="footer-col">
+      <p class="footer-head">Liên hệ</p>
+
+      {
+        contactChannels.length > 0 && (
+          <ul class="chan-list">
             {contactChannels.map((c) => (
               <li>
+                {/*
+                  The number is the link text and the service is a label
+                  beside it, both on one line. Stacked, six channels came to
+                  twelve lines of grey — a wall to read rather than a list to
+                  pick from.
+                */}
                 <a href={channelHref(c)} target="_blank" rel="noopener noreferrer">
-                  {c.label ?? CHANNEL_LABELS[c.type] ?? c.type}
-                  <span class="value">{c.value}</span>
+                  <span class="chan-name">{c.label ?? CHANNEL_LABELS[c.type] ?? c.type}</span>
+                  <span class="chan-value">{channelDisplay(c)}</span>
                 </a>
               </li>
             ))}
           </ul>
-        </div>
-      )
-    }
+        )
+      }
 
-    {
-      (address || businessHours) && (
-        <div class="footer-col">
-          <p class="eyebrow">Cửa hàng</p>
-          <ul>
-            {address && <li class="plain">{address}</li>}
-            {businessHours && <li class="plain">{businessHours}</li>}
-          </ul>
-        </div>
-      )
-    }
+      {
+        (businessHours || address) && (
+          <p class="hours">
+            {businessHours && <span>Mở cửa {businessHours}</span>}
+            {address && <span>{address}</span>}
+          </p>
+        )
+      }
+    </div>
   </div>
 
   <div class="shell footer-base">
@@ -62,8 +112,6 @@ const year = new Date().getFullYear();
       Design by
       <a href="https://thachtn.work" target="_blank" rel="noopener">thachtn.work</a>
     </p>
-
-    <p class="promise">Đóng gói kín, không in tên sản phẩm trên bao bì</p>
   </div>
 </footer>
 
@@ -75,49 +123,103 @@ const year = new Date().getFullYear();
     padding-block: var(--space-7) var(--space-5);
   }
 
+  /*
+    The brand column is wider because it holds a sentence; the other two hold
+    lists and only need the width of their longest line. The old 1.4fr gave
+    the widest column the least to say and left a third of the footer empty.
+  */
   .footer-inner {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr;
-    gap: var(--space-6);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-6) var(--space-7);
+    align-items: start;
   }
 
   .wordmark {
     font-family: var(--font-display);
     font-size: var(--text-xl);
-    margin-bottom: var(--space-2);
   }
 
   .tagline {
     color: var(--text-soft);
     font-size: var(--text-sm);
-    max-width: 34ch;
+    margin-top: 2px;
   }
 
-  .footer-col ul {
+  .promise {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    max-width: 38ch;
+    border-radius: var(--radius);
+    background: var(--paper);
+    box-shadow: var(--shadow-inset);
+    color: var(--calm);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+
+  .promise svg {
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+
+  .footer-head {
+    font-size: var(--text-xs);
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-bottom: var(--space-3);
+  }
+
+  .cat-list,
+  .chan-list {
     list-style: none;
     padding: 0;
     display: grid;
     gap: var(--space-2);
-    margin-top: var(--space-3);
   }
 
-  .footer-col a {
-    display: flex;
-    flex-direction: column;
+  .cat-list a {
     font-size: var(--text-sm);
     color: var(--text-soft);
     transition: color 0.2s var(--ease);
   }
 
-  .footer-col a:hover {
+  .cat-list a:hover {
     color: var(--indigo);
   }
 
-  .footer-col .value {
-    color: var(--text);
+  .chan-list a {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
   }
 
-  .footer-col .plain {
+  .chan-name {
+    color: var(--text-dim);
+    /* Pinned so the numbers line up in a column rather than stepping in and
+       out behind labels of different lengths. */
+    flex: none;
+    min-width: 9ch;
+  }
+
+  .chan-value {
+    color: var(--text);
+    transition: color 0.2s var(--ease);
+  }
+
+  .chan-list a:hover .chan-value {
+    color: var(--indigo);
+  }
+
+  .hours {
+    display: grid;
+    gap: 2px;
+    margin-top: var(--space-4);
     font-size: var(--text-sm);
     color: var(--text-soft);
   }
@@ -134,12 +236,6 @@ const year = new Date().getFullYear();
     color: var(--text-dim);
   }
 
-  /* The one eucalyptus note down here: a discretion promise, same signal
-     colour as the discreet-mode control. */
-  .promise {
-    color: var(--calm);
-  }
-
   .credit a {
     color: var(--text-soft);
     border-bottom: 1px solid var(--line-strong);
@@ -152,10 +248,50 @@ const year = new Date().getFullYear();
     border-color: var(--indigo);
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 900px) {
+    .footer-inner {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* The sentence needs the full width; the two lists sit side by side
+       underneath it. */
+    .footer-brand {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .site-footer {
+      padding-block: var(--space-6) var(--space-4);
+    }
+
+    /* One column. Two of them on a phone left 160px per list, which is
+       narrower than "Búp Bê Tình Dục Nam Nữ" and narrower than a phone
+       number — both were being broken across lines. */
     .footer-inner {
       grid-template-columns: 1fr;
       gap: var(--space-5);
+    }
+
+    .promise {
+      max-width: none;
+    }
+
+    /*
+      Names flow and wrap instead of sitting in columns. They run from one
+      word to five, so any column grid either breaks the long ones or leaves
+      the short ones stranded in a lane of their own.
+    */
+    .cat-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+    }
+
+    .footer-base {
+      margin-top: var(--space-5);
+      justify-content: flex-start;
+      gap: var(--space-2) var(--space-4);
     }
   }
 </style>

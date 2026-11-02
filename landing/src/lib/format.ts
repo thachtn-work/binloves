@@ -130,3 +130,41 @@ export function ratioStyle(ratio: string | null | undefined): string | undefined
   const value = ratio ? RATIOS[ratio] : undefined;
   return value ? `--ratio: ${value}` : undefined;
 }
+
+/*
+  What a contact channel should look like to a reader, which is not what is
+  stored.
+
+  The owner pastes whatever their phone or browser gave them — a full
+  Facebook URL, a number with no spacing — and the footer was printing it
+  back verbatim. A line reading "https://www.facebook.com/BinlovesVN/" tells
+  a visitor nothing the word "Facebook" beside it had not already said, and
+  it is the longest string on the page.
+*/
+export function channelDisplay(channel: ContactChannel): string {
+  const value = channel.value.trim();
+
+  if (/^https?:/i.test(value)) {
+    try {
+      const url = new URL(value);
+      // The handle is the last meaningful part of the path; a profile URL
+      // with nothing after the host falls back to the host itself.
+      const handle = url.pathname.split('/').filter(Boolean).pop();
+      return handle ?? url.hostname.replace(/^www\./, '');
+    } catch {
+      return value;
+    }
+  }
+
+  if (channel.type === 'phone' || channel.type === 'zalo') {
+    // 0327323497 → 0327 323 497. Ten digits is every Vietnamese mobile
+    // number; anything else is left exactly as the owner typed it rather
+    // than grouped into a shape it might not have.
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 10) {
+      return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+    }
+  }
+
+  return value;
+}
