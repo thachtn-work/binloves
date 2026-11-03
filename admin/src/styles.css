@@ -551,12 +551,23 @@ h3 {
 /* ---------- Bits ---------- */
 
 .thumb {
+  /* Block so the same class can be an empty placeholder: a bare <span> would
+     ignore the size and the row would collapse to the height of its text,
+     leaving a list of pictures with ragged gaps wherever one is missing. */
+  display: block;
   width: 46px;
   height: 46px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--surface-sunken);
   border: 1px solid var(--border);
+}
+
+/* Categories are drawn as circles on the website, so their preview is one
+   here too — what matters when choosing the photo is whether it survives a
+   circular crop. */
+.thumb--round {
+  border-radius: 50%;
 }
 
 /* ---------- Reordering by drag ---------- */

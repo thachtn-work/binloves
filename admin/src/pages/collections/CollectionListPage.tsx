@@ -5,6 +5,7 @@ import { api, errorMessage } from '../../lib/api';
 import { removeRow, restoreList, upsertRow } from '../../lib/cache';
 import type { Collection } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
+import { MediaThumb } from '../../media/MediaThumb';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
 import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../lib/search';
@@ -164,6 +165,7 @@ export function CollectionListPage() {
               <thead>
                 <tr>
                   <th style={{ width: 78 }}>Thứ tự</th>
+                  <th style={{ width: 72 }}>Ảnh</th>
                   <th>Bộ sưu tập</th>
                   <th style={{ width: 130 }}>Số sản phẩm</th>
                   <th style={{ width: 120 }}>Hiển thị</th>
@@ -183,6 +185,17 @@ export function CollectionListPage() {
                         disabled={reorder.isPending || searching}
                         onMove={onMove}
                       />
+                    </td>
+                    {/* Square rather than round: nothing on the website draws
+                        a collection as a circle, so a round preview here would
+                        promise a shape the shopper never sees. Empty when the
+                        owner has chosen nothing. */}
+                    <td>
+                      {collection.cover ? (
+                        <MediaThumb className="thumb" media={collection.cover} />
+                      ) : (
+                        <span className="thumb" />
+                      )}
                     </td>
                     <td>
                       <div className="cellmain">

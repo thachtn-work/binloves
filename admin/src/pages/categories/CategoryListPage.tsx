@@ -4,6 +4,7 @@ import { api, errorMessage } from '../../lib/api';
 import { removeRow, restoreList, upsertRow } from '../../lib/cache';
 import type { Category } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
+import { MediaThumb } from '../../media/MediaThumb';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
 import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../lib/search';
@@ -165,6 +166,7 @@ export function CategoryListPage() {
               <thead>
                 <tr>
                   <th style={{ width: 78 }}>Thứ tự</th>
+                  <th style={{ width: 72 }}>Ảnh</th>
                   <th>Danh mục</th>
                   <th style={{ width: 120 }}>Hiển thị</th>
                   <th />
@@ -184,6 +186,20 @@ export function CategoryListPage() {
                         disabled={reorder.isPending || searching}
                         onMove={onMove}
                       />
+                    </td>
+                    {/* Round, because round is how this photo is drawn on the
+                        website: the circles the homepage opens with. The crop
+                        a square preview would flatter is not the crop the
+                        shopper sees. Empty when the owner has chosen nothing
+                        — the site then borrows a photo from the first product
+                        inside, which is not this category's own picture and
+                        would read as one here. */}
+                    <td>
+                      {category.cover ? (
+                        <MediaThumb className="thumb thumb--round" media={category.cover} />
+                      ) : (
+                        <span className="thumb thumb--round" />
+                      )}
                     </td>
                     <td>
                       <div className="cellmain">
