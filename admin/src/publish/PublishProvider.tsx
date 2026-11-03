@@ -1,12 +1,25 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../lib/api';
 import type { PublishStatus } from '../lib/types';
 
 type Phase = 'idle' | 'pending' | 'building' | 'done' | 'failed' | 'unknown';
 
+/**
+ * Only the two actions, deliberately — `phase` is not on here.
+ *
+ * While a build is running this polls every two seconds for up to three
+ * minutes, and `phase` changes several times along the way. Handing `phase` to
+ * consumers through this context meant every one of those ticks re-rendered
+ * every page that had ever called `usePublish()`, including the product table
+ * sitting behind the panel. No page ever read it; they all want `notifyChange`
+ * and nothing else. The toast below is the one thing that needs the phase, and
+ * it lives inside the provider where the state already is.
+ *
+ * Memoised so the value is the same object for the life of the app: a context
+ * value rebuilt on every render re-renders every consumer whatever is in it.
+ */
 interface PublishContextValue {
-  phase: Phase;
   /** Call after any successful save so the owner sees the site catching up. */
   notifyChange: () => void;
   dismiss: () => void;
@@ -87,8 +100,10 @@ export function PublishProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(t);
   }, [phase]);
 
+  const actions = useMemo(() => ({ notifyChange, dismiss }), [notifyChange, dismiss]);
+
   return (
-    <PublishContext.Provider value={{ phase, notifyChange, dismiss }}>
+    <PublishContext.Provider value={actions}>
       {children}
       <PublishToast phase={phase} onDismiss={dismiss} />
     </PublishContext.Provider>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
+import { removeRow, restoreList, upsertRow } from '../lib/cache';
 import { CONTACT_CHANNEL_TYPES } from '../lib/types';
 import type { ContactChannel } from '../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Field, Loading, PageHead } from '../components/ui';
@@ -53,19 +54,21 @@ export function ContactChannelPage() {
       if (context?.previous) queryClient.setQueryData(['contact-channels'], context.previous);
       setError(errorMessage(err, 'Không lưu được thứ tự.'));
     },
+    // No refetch after: the order just written is the order the API was told
+    // to store, so asking for it back redraws the same rows.
     onSuccess: () => notifyChange(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['contact-channels'] }),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/contact-channels/${id}`),
-    onSuccess: async () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['contact-channels'] });
       setToDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['contact-channels'] });
-      notifyChange();
+      return { previous: removeRow<ContactChannel>(queryClient, ['contact-channels'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onSuccess: () => notifyChange(),
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['contact-channels'], context?.previous);
       setError(errorMessage(err));
     },
   });
@@ -175,13 +178,17 @@ function ChannelRow({
 
   const update = useMutation({
     mutationFn: async () =>
-      api.patch(`/contact-channels/${channel.id}`, {
-        value: value.trim(),
-        label: label.trim() || undefined,
-        isActive,
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['contact-channels'] });
+      (
+        await api.patch<ContactChannel>(`/contact-channels/${channel.id}`, {
+          value: value.trim(),
+          label: label.trim() || undefined,
+          isActive,
+        })
+      ).data,
+    // Editing one channel used to refetch all of them, which also rebuilt the
+    // other rows' inputs underneath whatever the owner was doing.
+    onSuccess: (saved) => {
+      upsertRow(queryClient, ['contact-channels'], saved, 'tail');
       notifyChange();
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
@@ -260,13 +267,16 @@ function ChannelCreateCard({ usedTypes, onDone }: { usedTypes: Set<string>; onDo
 
   const create = useMutation({
     mutationFn: async () =>
-      api.post('/contact-channels', {
-        type,
-        value: value.trim(),
-        label: label.trim() || undefined,
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['contact-channels'] });
+      (
+        await api.post<ContactChannel>('/contact-channels', {
+          type,
+          value: value.trim(),
+          label: label.trim() || undefined,
+        })
+      ).data,
+    // 'tail': the API gives a new channel max(sortOrder) + 1.
+    onSuccess: (saved) => {
+      upsertRow(queryClient, ['contact-channels'], saved, 'tail');
       notifyChange();
       onDone();
     },

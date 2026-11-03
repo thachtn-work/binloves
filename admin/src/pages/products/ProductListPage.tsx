@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api';
+import { removeRow, restoreList, upsertRow } from '../../lib/cache';
 import type { Product } from '../../lib/types';
 import {
   ConfirmDialog,
@@ -61,6 +62,112 @@ function renderPrice(product: Product) {
   );
 }
 
+/*
+  One row, and it only redraws when its own product changes.
+
+  The table sits behind the edit panel, so before this every keystroke in the
+  product form redrew all of it: at two hundred products that was two hundred
+  rows rebuilt per character typed, each one re-sorting its own media array to
+  find a cover it had already found. Nothing the owner could see changed.
+*/
+const ProductRow = memo(function ProductRow({
+  product,
+  isNew,
+  onEdit,
+  onDelete,
+}: {
+  product: Product;
+  isNew: boolean;
+  onEdit: (product: Product) => void;
+  onDelete: (product: Product) => void;
+}) {
+  const cover = [...product.media].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  return (
+    <tr className={isNew ? 'row-new' : undefined}>
+      <td>{cover ? <MediaThumb className="thumb" media={cover.media} /> : <div className="thumb" />}</td>
+      <td>
+        <div className="cellmain">
+          <button type="button" className="linklike" onClick={() => onEdit(product)}>
+            {product.name}
+          </button>
+        </div>
+        <div className="cellsub">/{product.slug}</div>
+      </td>
+      <td className="cellsub">{product.category?.name ?? '—'}</td>
+      {/*
+        Shows what the website is showing, not what is stored. A sale that has
+        not started yet — or has already run out — is not the price a customer
+        sees, and listing it as the price was the quiet way to believe a
+        discount is live when it is not.
+      */}
+      <td>{renderPrice(product)}</td>
+      <td>
+        <StatusTag active={product.isActive} />
+      </td>
+      <td>
+        <div className="table__actions">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => onEdit(product)}>
+            Sửa
+          </button>
+          <button type="button" className="btn btn--danger btn--sm" onClick={() => onDelete(product)}>
+            Xoá
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+/*
+  The table as a whole, memoised.
+
+  Memoising the rows alone was not enough. The rows live inside the same
+  component as the edit form, so every keystroke still ran the parent's render
+  and built four hundred row elements for React to compare and throw away —
+  the cost stayed proportional to the catalogue even though not one row
+  changed. Held behind its own boundary, the table is skipped entirely unless
+  the list, the search or the highlighted row actually moved.
+*/
+const ProductTable = memo(function ProductTable({
+  items,
+  newId,
+  onEdit,
+  onDelete,
+}: {
+  items: Product[];
+  newId: string | null;
+  onEdit: (product: Product) => void;
+  onDelete: (product: Product) => void;
+}) {
+  return (
+    <div className="table-scroll">
+      <table className="table">
+        <thead>
+          <tr>
+            <th style={{ width: 62 }}>Xem trước</th>
+            <th>Sản phẩm</th>
+            <th>Danh mục</th>
+            <th>Giá</th>
+            <th style={{ width: 120 }}>Hiển thị</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((product) => (
+            <ProductRow
+              key={product.id}
+              product={product}
+              isNew={product.id === newId}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+});
+
 export function ProductListPage() {
   const queryClient = useQueryClient();
   const { notifyChange } = usePublish();
@@ -77,17 +184,19 @@ export function ProductListPage() {
     queryFn: async () => (await api.get<Product[]>('/products')).data,
   });
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     setPanelError(null);
     setValues(emptyProduct());
     setEditing({ mode: 'create' });
-  }
+  }, []);
 
-  function openEdit(product: Product) {
+  // Stable across renders, or every row would see a new prop each time the
+  // form state changed and memoising them would buy nothing.
+  const openEdit = useCallback((product: Product) => {
     setPanelError(null);
     setValues(productToValues(product));
     setEditing({ mode: 'edit', product });
-  }
+  }, []);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -97,9 +206,13 @@ export function ProductListPage() {
       }
       return (await api.post<Product>('/products', payload)).data;
     },
-    onSuccess: async (saved) => {
+    onSuccess: (saved) => {
       const wasCreate = editing?.mode === 'create';
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      // The API answered with the whole product, so the list it belongs to is
+      // already here — fetching it again would only hand back what we hold.
+      // 'head' is where the API puts it: products are ordered by sortOrder
+      // ascending then createdAt descending, and a new one keeps sortOrder 0.
+      upsertRow(queryClient, ['products'], saved, 'head');
       notifyChange();
       setEditing(null);
       if (wasCreate) {
@@ -115,23 +228,31 @@ export function ProductListPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/products/${id}`),
-    onSuccess: async () => {
+    // The row goes the moment the owner confirms, and comes back if the API
+    // refuses. Waiting for the round trip to redraw a list the browser can
+    // already work out is how a delete comes to feel broken.
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['products'] });
       setToDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
-      notifyChange();
+      return { previous: removeRow<Product>(queryClient, ['products'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onSuccess: () => notifyChange(),
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['products'], context?.previous);
       setError(errorMessage(err));
     },
   });
 
-  const list = products ?? [];
+  const list = useMemo(() => products ?? [], [products]);
   const searching = search.trim() !== '';
   // Category name is searchable too: "tìm hết hàng thuộc Danh mục 2" is a
   // common way to narrow a long product list.
-  const visible = list.filter((p) =>
-    matchesSearch(search, p.name, p.slug, p.category?.name, p.stockLabel),
+  //
+  // Memoised because the rows below are: a filter run fresh on every render
+  // hands them a brand new array each time and defeats the whole point.
+  const visible = useMemo(
+    () => list.filter((p) => matchesSearch(search, p.name, p.slug, p.category?.name, p.stockLabel)),
+    [list, search],
   );
 
   return (
@@ -173,74 +294,12 @@ export function ProductListPage() {
             <p>Thử từ khoá ngắn hơn, hoặc tìm theo tên danh mục.</p>
           </Empty>
         ) : (
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: 62 }}>Xem trước</th>
-                  <th>Sản phẩm</th>
-                  <th>Danh mục</th>
-                  <th>Giá</th>
-                  <th style={{ width: 120 }}>Hiển thị</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((product) => {
-                  const cover = [...product.media].sort((a, b) => a.sortOrder - b.sortOrder)[0];
-                  return (
-                    <tr key={product.id} className={product.id === newId ? 'row-new' : undefined}>
-                      <td>
-                        {cover ? (
-                          <MediaThumb className="thumb" media={cover.media} />
-                        ) : (
-                          <div className="thumb" />
-                        )}
-                      </td>
-                      <td>
-                        <div className="cellmain">
-                          <button type="button" className="linklike" onClick={() => openEdit(product)}>
-                            {product.name}
-                          </button>
-                        </div>
-                        <div className="cellsub">/{product.slug}</div>
-                      </td>
-                      <td className="cellsub">{product.category?.name ?? '—'}</td>
-                      {/*
-                        Shows what the website is showing, not what is stored.
-                        A sale that has not started yet — or has already run
-                        out — is not the price a customer sees, and listing it
-                        as the price was the quiet way to believe a discount is
-                        live when it is not.
-                      */}
-                      <td>{renderPrice(product)}</td>
-                      <td>
-                        <StatusTag active={product.isActive} />
-                      </td>
-                      <td>
-                        <div className="table__actions">
-                          <button
-                            type="button"
-                            className="btn btn--secondary btn--sm"
-                            onClick={() => openEdit(product)}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn--danger btn--sm"
-                            onClick={() => setToDelete(product)}
-                          >
-                            Xoá
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ProductTable
+            items={visible}
+            newId={newId}
+            onEdit={openEdit}
+            onDelete={setToDelete}
+          />
         )}
       </div>
 

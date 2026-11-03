@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
+import { removeRow, restoreList, upsertRow } from '../lib/cache';
 import { matchesSearch } from '../lib/search';
 import type { Media } from '../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead } from '../components/ui';
@@ -84,24 +85,27 @@ export function MediaLibraryPage() {
   const setRatio = useMutation({
     mutationFn: async ({ id, displayRatio }: { id: string; displayRatio: DisplayRatio }) =>
       (await api.patch<Media>(`/media/${id}/ratio`, { displayRatio })).data,
-    onSuccess: async (updated) => {
+    onSuccess: (updated) => {
       // The panel is showing this file right now, so it has to agree with the
       // button that was just pressed without waiting for the list to refetch.
       setSelected(updated);
-      await queryClient.invalidateQueries({ queryKey: ['media'] });
+      // Nor does the grid behind it need to: one tile changed, the API said
+      // which, and the library runs to hundreds of files on a working shop.
+      upsertRow(queryClient, ['media'], updated, 'head');
     },
     onError: (err) => setError(errorMessage(err)),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/media/${id}`),
-    onSuccess: async () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['media'] });
       setToDelete(null);
       setSelected(null);
-      await queryClient.invalidateQueries({ queryKey: ['media'] });
+      return { previous: removeRow<Media>(queryClient, ['media'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['media'], context?.previous);
       setError(errorMessage(err));
     },
   });

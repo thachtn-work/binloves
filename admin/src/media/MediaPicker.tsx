@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { upsertRow } from '../lib/cache';
 import type { Media } from '../lib/types';
 import { ConfirmDialog, Loading } from '../components/ui';
 import { useUpload } from './useUpload';
@@ -36,6 +37,89 @@ interface Props {
   showRatio?: boolean;
 }
 
+/*
+  Three rows at a time, the same batch the media library page reveals, and the
+  same look-ahead before topping up.
+*/
+const PAGE_SIZE = 48;
+const AHEAD_PX = 600;
+
+/*
+  The library as tiles, held behind its own boundary and shown a batch at a
+  time.
+
+  This grid sits inside the product form, so before this it was rebuilt on
+  every keystroke in every field on that form — a shop with several hundred
+  files in the library redrew several hundred tiles per character typed, none
+  of which could have changed. It only depends on what is in the library and
+  what is selected.
+*/
+const LibraryGrid = memo(function LibraryGrid({
+  library,
+  value,
+  multiple,
+  onToggle,
+}: {
+  library: Media[];
+  value: string[];
+  multiple: boolean;
+  onToggle: (id: string) => void;
+}) {
+  /*
+    Only the first batch is in the DOM to begin with.
+
+    This grid is mounted every time the add-product panel is opened, and it
+    was mounting the entire library each time — a shop with several hundred
+    files attached several hundred image elements for the browser to fetch and
+    decode, for a field three rows tall. Adding products one after another
+    paid that on every single one, and it is the larger half of what made a
+    long session degrade. Three rows fill the frame; the rest arrive by
+    scrolling, which is what the media library page already does.
+  */
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(PAGE_SIZE);
+
+  // A narrower filter, or a fresh upload, starts the count again rather than
+  // keeping however far the previous library had been scrolled.
+  useEffect(() => setShown(PAGE_SIZE), [library]);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const topUp = () => {
+      if (grid.scrollHeight - grid.scrollTop - grid.clientHeight > AHEAD_PX) return;
+      setShown((n) => Math.min(n + PAGE_SIZE, library.length));
+    };
+    topUp();
+    grid.addEventListener('scroll', topUp, { passive: true });
+    return () => grid.removeEventListener('scroll', topUp);
+  }, [library.length, shown]);
+
+  return (
+    // `--picker` is what carries the height cap. The same grid on the media
+    // library page fills the screen instead, because there the pictures are
+    // the page rather than one field on a form.
+    <div className="mediagrid mediagrid--picker" ref={gridRef}>
+      {library.slice(0, shown).map((m) => {
+        const order = value.indexOf(m.id);
+        return (
+          <button
+            type="button"
+            key={m.id}
+            className={`mediatile ${order >= 0 ? 'is-selected' : ''}`}
+            onClick={() => onToggle(m.id)}
+            aria-pressed={order >= 0}
+            title={m.filename}
+          >
+            <MediaThumb media={m} />
+            {order >= 0 && <span className="mediatile__order">{multiple ? order + 1 : '✓'}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
 export function MediaPicker({ value, onChange, multiple = true, kind, showRatio }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const { upload, cancel, uploading, progress, error, notice, confirmation } = useUpload();
@@ -55,13 +139,20 @@ export function MediaPicker({ value, onChange, multiple = true, kind, showRatio 
   */
   const setRatio = useMutation({
     mutationFn: async ({ id, displayRatio }: { id: string; displayRatio: DisplayRatio }) =>
-      api.patch(`/media/${id}/ratio`, { displayRatio }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] }),
+      (await api.patch<Media>(`/media/${id}/ratio`, { displayRatio })).data,
+    // One file's frame changed; the API answered with that file. Pulling the
+    // whole library back for it redrew every tile in the picker.
+    onSuccess: (updated) => upsertRow(queryClient, ['media'], updated, 'head'),
   });
 
-  const library = kind ? (media ?? []).filter((m) => m.mediaType === kind) : media ?? [];
-  const byId = new Map((media ?? []).map((m) => [m.id, m]));
-  const chosen = value.map((id) => byId.get(id)).filter((m): m is Media => Boolean(m));
+  const library = useMemo(
+    () => (kind ? (media ?? []).filter((m) => m.mediaType === kind) : (media ?? [])),
+    [media, kind],
+  );
+  const chosen = useMemo(() => {
+    const byId = new Map((media ?? []).map((m) => [m.id, m]));
+    return value.map((id) => byId.get(id)).filter((m): m is Media => Boolean(m));
+  }, [media, value]);
 
   function toggle(id: string) {
     if (!multiple) {
@@ -70,6 +161,17 @@ export function MediaPicker({ value, onChange, multiple = true, kind, showRatio 
     }
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
   }
+
+  /*
+    A stable handle on `toggle`, which is rebuilt on every render because it
+    closes over the current selection. The grid below is memoised and would be
+    redrawn by a new function alone — the same reason `EditSurface` keeps its
+    `onClose` in a ref. The ref always holds the current one, so the grid stays
+    still and the click still does the right thing.
+  */
+  const toggleRef = useRef(toggle);
+  toggleRef.current = toggle;
+  const onToggle = useCallback((id: string) => toggleRef.current(id), []);
 
   function move(index: number, delta: number) {
     const next = [...value];
@@ -198,24 +300,7 @@ export function MediaPicker({ value, onChange, multiple = true, kind, showRatio 
         // `--picker` is what carries the height cap. The same grid on the
         // media library page fills the screen instead, because there the
         // pictures are the page rather than one field on a form.
-        <div className="mediagrid mediagrid--picker">
-          {library.map((m) => {
-            const order = value.indexOf(m.id);
-            return (
-              <button
-                type="button"
-                key={m.id}
-                className={`mediatile ${order >= 0 ? 'is-selected' : ''}`}
-                onClick={() => toggle(m.id)}
-                aria-pressed={order >= 0}
-                title={m.filename}
-              >
-                <MediaThumb media={m} />
-                {order >= 0 && <span className="mediatile__order">{multiple ? order + 1 : '✓'}</span>}
-              </button>
-            );
-          })}
-        </div>
+        <LibraryGrid library={library} value={value} multiple={multiple} onToggle={onToggle} />
       )}
     </div>
   );

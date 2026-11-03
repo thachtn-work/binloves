@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { Media, Product } from '../../lib/types';
 import { Field, Fieldset } from '../../components/ui';
@@ -170,25 +170,36 @@ export function VariantEditor({
   /** The value whose photo is being chosen, or null when the picker is closed. */
   const [pickerFor, setPickerFor] = useState<string | null>(null);
 
-  // Shares the list page's cache, so this costs no extra request. Reusing a
-  // name the catalogue already has is what keeps "Dung tích" from becoming
-  // three different spellings across 43 products.
-  const { data: products } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => (await api.get<Product[]>('/products')).data,
-  });
-  const usedNames = [
-    ...new Set(
-      (products ?? []).flatMap((p) => [p.option1Name, p.option2Name]).filter((n): n is string => !!n),
-    ),
-  ];
+  /*
+    Read out of the cache, never fetched.
 
-  // Already in the cache behind the gallery picker further up the same form.
+    These are spelling hints — reusing a name the catalogue already has is what
+    keeps "Dung tích" from becoming three spellings across 43 products — and a
+    hint is not worth a request. Subscribed as a query it was one: opening this
+    panel a minute after the last one pulled the entire catalogue down again to
+    collect a handful of distinct strings. The list page above has already
+    loaded it, and if it somehow has not, the field simply offers no hints.
+  */
+  const queryClient = useQueryClient();
+  const usedNames = useMemo(() => {
+    const cached = queryClient.getQueryData<Product[]>(['products']) ?? [];
+    return [
+      ...new Set(
+        cached.flatMap((p) => [p.option1Name, p.option2Name]).filter((n): n is string => !!n),
+      ),
+    ];
+  }, [queryClient]);
+
+  // The swatches do need the library, and the picker further up the same form
+  // shares this exact query, so the two of them cost one request between them.
   const { data: library } = useQuery({
     queryKey: ['media'],
     queryFn: async () => (await api.get<Media[]>('/media')).data,
   });
-  const mediaById = new Map((library ?? []).map((m) => [m.id, m]));
+  const mediaById = useMemo(
+    () => new Map((library ?? []).map((m) => [m.id, m])),
+    [library],
+  );
 
   const first = valuesOfGroup1(variants);
   const second = valuesOfGroup2(variants);

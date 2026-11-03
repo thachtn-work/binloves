@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api';
+import { removeRow, restoreList, upsertRow } from '../../lib/cache';
 import type { Category } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
@@ -36,11 +37,11 @@ export function CategoryListPage() {
     setEditing({ mode: 'create' });
   }
 
-  function openEdit(category: Category) {
+  const openEdit = useCallback((category: Category) => {
     setPanelError(null);
     setValues(categoryToValues(category));
     setEditing({ mode: 'edit', category });
-  }
+  }, []);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -50,9 +51,12 @@ export function CategoryListPage() {
       }
       return (await api.post<Category>('/categories', payload)).data;
     },
-    onSuccess: async (saved) => {
+    onSuccess: (saved) => {
       const wasCreate = editing?.mode === 'create';
-      await queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // The API answered with the saved row, so there is nothing left to go
+      // and fetch. 'tail' is where a new one lands: the API gives it
+      // max(sortOrder) + 1, which puts it last.
+      upsertRow(queryClient, ['categories'], saved, 'tail');
       notifyChange();
       setEditing(null);
       if (wasCreate) {
@@ -85,26 +89,30 @@ export function CategoryListPage() {
       if (context?.previous) queryClient.setQueryData(['categories'], context.previous);
       setError(errorMessage(err, 'Không lưu được thứ tự.'));
     },
+    // No refetch once it lands: the order written above is the order the
+    // API was just told to store, so asking for it back only redraws the
+    // table with the rows it already has.
     onSuccess: () => notifyChange(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/categories/${id}`),
-    onSuccess: async () => {
+    // Gone on confirm, back if the API refuses.
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['categories'] });
       setToDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['categories'] });
-      notifyChange();
+      return { previous: removeRow<Category>(queryClient, ['categories'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onSuccess: () => notifyChange(),
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['categories'], context?.previous);
       setError(errorMessage(err));
     },
   });
 
-  const list = categories ?? [];
+  const list = useMemo(() => categories ?? [], [categories]);
   const searching = search.trim() !== '';
-  const visible = list.filter((c) => matchesSearch(search, c.name, c.slug));
+  const visible = useMemo(() => list.filter((c) => matchesSearch(search, c.name, c.slug)), [list, search]);
 
   function onMove(from: number, to: number) {
     const next = moveItem(list, from, to);

@@ -92,7 +92,13 @@ function seed(): Db {
 
   const stockLabels = ['Còn hàng', 'Còn 2 sản phẩm', 'Sắp hết', 'Còn 5 sản phẩm', null];
 
-  const products: Product[] = Array.from({ length: 24 }, (_, index) => {
+  /*
+    Twenty-four is what the demo shows. The knob exists because render cost is
+    the thing this admin gets wrong at scale, and twenty-four rows hide it —
+    `VITE_DEMO_PRODUCTS=400` is how the slow paths were found and measured.
+  */
+  const count = Number(import.meta.env.VITE_DEMO_PRODUCTS ?? 24);
+  const products: Product[] = Array.from({ length: count }, (_, index) => {
     const i = index + 1;
     const price = 150000 + i * 70000;
     const onSale = i % 3 === 0;
@@ -235,8 +241,21 @@ const db = seed();
 // shows a realistic "last updated" line instead of an error.
 let lastBuildAt = new Date(Date.now() - 4 * 60 * 1000).toISOString();
 
+/*
+  Answers with a copy, never with the live store.
+
+  A real response is JSON parsed fresh on arrival, so the caller holds
+  something of its own. Handing out `db.products` itself meant the cached list
+  and the store were the same array: a later create pushed a row straight into
+  the list React was holding, without React being told, and the query cache
+  then compared the "new" data against itself, found it identical, and kept
+  the old reference — so the row was in memory and never on screen.
+
+  That is a fault in the stand-in, not in the code using it: nothing behind a
+  network boundary can mutate a response that has already been delivered.
+*/
 const ok = (config: AxiosRequestConfig, data: unknown, status = 200): AxiosResponse => ({
-  data,
+  data: structuredClone(data),
   status,
   statusText: 'OK',
   headers: {},

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api';
+import { removeRow, restoreList, upsertRow } from '../../lib/cache';
 import type { Collection } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
@@ -41,11 +42,11 @@ export function CollectionListPage() {
     setEditing({ mode: 'create' });
   }
 
-  function openEdit(collection: Collection) {
+  const openEdit = useCallback((collection: Collection) => {
     setPanelError(null);
     setValues(collectionToValues(collection));
     setEditing({ mode: 'edit', collection });
-  }
+  }, []);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -55,9 +56,12 @@ export function CollectionListPage() {
       }
       return (await api.post<Collection>('/collections', payload)).data;
     },
-    onSuccess: async (saved) => {
+    onSuccess: (saved) => {
       const wasCreate = editing?.mode === 'create';
-      await queryClient.invalidateQueries({ queryKey: ['collections'] });
+      // The API answered with the saved row, so there is nothing left to go
+      // and fetch. 'tail' is where a new one lands: the API gives it
+      // max(sortOrder) + 1, which puts it last.
+      upsertRow(queryClient, ['collections'], saved, 'tail');
       notifyChange();
       setEditing(null);
       if (wasCreate) {
@@ -86,26 +90,30 @@ export function CollectionListPage() {
       if (context?.previous) queryClient.setQueryData(['collections'], context.previous);
       setError(errorMessage(err, 'Không lưu được thứ tự.'));
     },
+    // No refetch once it lands: the order written above is the order the
+    // API was just told to store, so asking for it back only redraws the
+    // table with the rows it already has.
     onSuccess: () => notifyChange(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/collections/${id}`),
-    onSuccess: async () => {
+    // Gone on confirm, back if the API refuses.
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['collections'] });
       setToDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['collections'] });
-      notifyChange();
+      return { previous: removeRow<Collection>(queryClient, ['collections'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onSuccess: () => notifyChange(),
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['collections'], context?.previous);
       setError(errorMessage(err));
     },
   });
 
-  const list = collections ?? [];
+  const list = useMemo(() => collections ?? [], [collections]);
   const searching = search.trim() !== '';
-  const visible = list.filter((c) => matchesSearch(search, c.name, c.slug, c.description));
+  const visible = useMemo(() => list.filter((c) => matchesSearch(search, c.name, c.slug, c.description)), [list, search]);
 
   function onMove(from: number, to: number) {
     const next = moveItem(list, from, to);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
+import { bySortOrder, removeRow, restoreList, upsertRow } from '../lib/cache';
 import type { Banner } from '../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Field, Loading, PageHead, StatusTag } from '../components/ui';
 import { MediaPicker } from '../media/MediaPicker';
@@ -21,22 +22,25 @@ export function BannerPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => api.delete(`/banners/${id}`),
-    onSuccess: async () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['banners'] });
       setToDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['banners'] });
-      notifyChange();
+      return { previous: removeRow<Banner>(queryClient, ['banners'], id) };
     },
-    onError: (err) => {
-      setToDelete(null);
+    onSuccess: () => notifyChange(),
+    onError: (err, _id, context) => {
+      restoreList(queryClient, ['banners'], context?.previous);
       setError(errorMessage(err));
     },
   });
 
   const toggle = useMutation({
     mutationFn: async (banner: Banner) =>
-      api.patch(`/banners/${banner.id}`, { isActive: !banner.isActive }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['banners'] });
+      (await api.patch<Banner>(`/banners/${banner.id}`, { isActive: !banner.isActive })).data,
+    // One checkbox used to cost the whole banner list. The PATCH answers with
+    // the row it changed, which is the only row that changed.
+    onSuccess: (saved) => {
+      upsertRow(queryClient, ['banners'], saved, bySortOrder);
       notifyChange();
     },
     onError: (err) => setError(errorMessage(err)),
@@ -149,14 +153,18 @@ function BannerCreateCard({ onDone }: { onDone: () => void }) {
 
   const create = useMutation({
     mutationFn: async () =>
-      api.post('/banners', {
-        mediaId: mediaIds[0],
-        title: title.trim() || undefined,
-        linkUrl: linkUrl.trim() || undefined,
-        sortOrder: Number(sortOrder) || 0,
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['banners'] });
+      (
+        await api.post<Banner>('/banners', {
+          mediaId: mediaIds[0],
+          title: title.trim() || undefined,
+          linkUrl: linkUrl.trim() || undefined,
+          sortOrder: Number(sortOrder) || 0,
+        })
+      ).data,
+    // Sorted in, not appended: a banner's position is the number the owner
+    // typed in the box above, not the moment they pressed the button.
+    onSuccess: (saved) => {
+      upsertRow(queryClient, ['banners'], saved, bySortOrder);
       notifyChange();
       onDone();
     },

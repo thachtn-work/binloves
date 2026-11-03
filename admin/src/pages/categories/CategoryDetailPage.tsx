@@ -35,10 +35,25 @@ export function CategoryDetailPage() {
     queryFn: async () => (await api.get<Product[]>(`/products?categoryId=${id}`)).data,
   });
 
+  /*
+    Refetches the list this page is showing, and only marks the catalogue-wide
+    one stale.
+
+    Moving a product renumbers sortOrder, so the plain product list is out of
+    date too — but it is not on screen, and `invalidateQueries` on the bare key
+    used to match this page's scoped key as a prefix and pull both. The
+    catalogue refetches when the owner next opens it, which is the moment it
+    matters.
+  */
+  async function refreshAfterMove() {
+    queryClient.invalidateQueries({ queryKey: ['products'], exact: true, refetchType: 'none' });
+    await queryClient.invalidateQueries({ queryKey: ['products', { categoryId: id }] });
+  }
+
   const reorder = useMutation({
     mutationFn: async (ids: string[]) => api.put('/products/reorder', { categoryId: id, ids }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await refreshAfterMove();
       notifyChange();
     },
     onError: (err) => setError(errorMessage(err)),
@@ -48,7 +63,7 @@ export function CategoryDetailPage() {
     mutationFn: async ({ productId, direction }: { productId: string; direction: 'up' | 'down' }) =>
       api.put(`/products/${productId}/move`, { direction }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await refreshAfterMove();
       notifyChange();
     },
     onError: (err) => setError(errorMessage(err)),

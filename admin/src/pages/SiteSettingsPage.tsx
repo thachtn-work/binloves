@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
 import type { SiteSettings } from '../lib/types';
@@ -24,8 +24,19 @@ export function SiteSettingsPage() {
     queryFn: async () => (await api.get<SiteSettings>('/site-settings')).data,
   });
 
+  /*
+    Seeded once, from the first copy that arrives.
+
+    Keyed on `data` alone this re-ran every time the query handed back a new
+    object — including the refetch that used to follow a save — and overwrote
+    the boxes. Anything typed in the seconds after pressing Save was quietly
+    thrown away. The server copy is only ever authoritative before the owner
+    has started editing.
+  */
+  const seeded = useRef(false);
   useEffect(() => {
-    if (!data) return;
+    if (!data || seeded.current) return;
+    seeded.current = true;
     setForm({
       shopName: data.shopName ?? '',
       tagline: data.tagline ?? '',
@@ -42,16 +53,20 @@ export function SiteSettingsPage() {
       // simply omitted the field and the server read that as "leave alone" —
       // which meant emptying any box here never cleared anything. Every one of
       // these is optional and says so, so emptying one has to mean emptying it.
-      api.put('/site-settings', {
-        shopName: form.shopName?.trim() || null,
-        tagline: form.tagline?.trim() || null,
-        intro: form.intro?.trim() || null,
-        seoDescription: form.seoDescription?.trim() || null,
-        address: form.address?.trim() || null,
-        businessHours: form.businessHours?.trim() || null,
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['site-settings'] });
+      (
+        await api.put<SiteSettings>('/site-settings', {
+          shopName: form.shopName?.trim() || null,
+          tagline: form.tagline?.trim() || null,
+          intro: form.intro?.trim() || null,
+          seoDescription: form.seoDescription?.trim() || null,
+          address: form.address?.trim() || null,
+          businessHours: form.businessHours?.trim() || null,
+        })
+      ).data,
+    // The PUT answers with the saved settings, and the header reads them from
+    // this same cache entry for the shop name.
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['site-settings'], saved);
       notifyChange();
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);

@@ -40,8 +40,13 @@ export function CollectionDetailPage() {
 
   const save = useMutation({
     mutationFn: async () => api.put(`/collections/${id}/products`, { productIds: selected }),
+    // The API answers with nothing, so this page does have to ask again for
+    // the collection it is showing. The list of collections is a different
+    // matter: only its product counts moved, and it is not on screen — mark it
+    // stale and let the next visit pay for it.
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['collections'], exact: true, refetchType: 'none' });
+      await queryClient.invalidateQueries({ queryKey: ['collections', id] });
       notifyChange();
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);

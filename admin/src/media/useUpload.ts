@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../lib/api';
+import { upsertRow } from '../lib/cache';
 import type { Media } from '../lib/types';
 import { detectRatio } from '../lib/ratio';
 
@@ -249,7 +250,13 @@ export function useUpload() {
         report();
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['media'] });
+      // The API answered with every row it created, and the library is sorted
+      // newest first — so they go on the front in the order they came back.
+      // Refetching instead meant a shop with hundreds of files pulled all of
+      // them down again after adding one.
+      for (const item of [...created].reverse()) {
+        upsertRow(queryClient, ['media'], item, 'head');
+      }
       return created;
     } catch (err) {
       if (wasCancelled(err, signal)) setNotice('Đã huỷ tải lên.');
