@@ -71,7 +71,7 @@ export function CollectionDetailPage() {
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['collections'], exact: true, refetchType: 'none' });
       await queryClient.invalidateQueries({ queryKey: ['collections', id] });
-      notifyChange();
+      notifyChange('Đã lưu danh sách sản phẩm');
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
     },

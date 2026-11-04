@@ -27,7 +27,7 @@ export function BannerPage() {
       setToDelete(null);
       return { previous: removeRow<Banner>(queryClient, ['banners'], id) };
     },
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã xoá banner'),
     onError: (err, _id, context) => {
       restoreList(queryClient, ['banners'], context?.previous);
       setError(errorMessage(err));
@@ -41,7 +41,7 @@ export function BannerPage() {
     // the row it changed, which is the only row that changed.
     onSuccess: (saved) => {
       upsertRow(queryClient, ['banners'], saved, bySortOrder);
-      notifyChange();
+      notifyChange(saved.isActive ? 'Đã hiện banner' : 'Đã ẩn banner');
     },
     onError: (err) => setError(errorMessage(err)),
   });
@@ -165,7 +165,7 @@ function BannerCreateCard({ onDone }: { onDone: () => void }) {
     // typed in the box above, not the moment they pressed the button.
     onSuccess: (saved) => {
       upsertRow(queryClient, ['banners'], saved, bySortOrder);
-      notifyChange();
+      notifyChange('Thêm banner thành công');
       onDone();
     },
     onError: (err) => setError(errorMessage(err)),

@@ -67,7 +67,7 @@ export function SiteSettingsPage() {
     // this same cache entry for the shop name.
     onSuccess: (saved) => {
       queryClient.setQueryData(['site-settings'], saved);
-      notifyChange();
+      notifyChange('Cập nhật thông tin cửa hàng thành công');
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
     },

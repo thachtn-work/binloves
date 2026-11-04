@@ -204,7 +204,7 @@ export function ProductListPage() {
       setToDelete(null);
       return { previous: removeRow<Product>(queryClient, ['products'], id) };
     },
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã xoá sản phẩm'),
     onError: (err, _id, context) => {
       restoreList(queryClient, ['products'], context?.previous);
       setError(errorMessage(err));

@@ -54,7 +54,7 @@ export function CategoryDetailPage() {
     mutationFn: async (ids: string[]) => api.put('/products/reorder', { categoryId: id, ids }),
     onSuccess: async () => {
       await refreshAfterMove();
-      notifyChange();
+      notifyChange('Đã lưu thứ tự sản phẩm');
     },
     onError: (err) => setError(errorMessage(err)),
   });
@@ -64,7 +64,7 @@ export function CategoryDetailPage() {
       api.put(`/products/${productId}/move`, { direction }),
     onSuccess: async () => {
       await refreshAfterMove();
-      notifyChange();
+      notifyChange('Đã lưu thứ tự sản phẩm');
     },
     onError: (err) => setError(errorMessage(err)),
   });

@@ -63,7 +63,7 @@ export function CollectionListPage() {
       // and fetch. 'tail' is where a new one lands: the API gives it
       // max(sortOrder) + 1, which puts it last.
       upsertRow(queryClient, ['collections'], saved, 'tail');
-      notifyChange();
+      notifyChange(wasCreate ? 'Thêm section thành công' : 'Cập nhật section thành công');
       setEditing(null);
       if (wasCreate) {
         setNewId(saved.id);
@@ -94,7 +94,7 @@ export function CollectionListPage() {
     // No refetch once it lands: the order written above is the order the
     // API was just told to store, so asking for it back only redraws the
     // table with the rows it already has.
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã lưu thứ tự section'),
   });
 
   const remove = useMutation({
@@ -105,7 +105,7 @@ export function CollectionListPage() {
       setToDelete(null);
       return { previous: removeRow<Collection>(queryClient, ['collections'], id) };
     },
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã xoá section'),
     onError: (err, _id, context) => {
       restoreList(queryClient, ['collections'], context?.previous);
       setError(errorMessage(err));

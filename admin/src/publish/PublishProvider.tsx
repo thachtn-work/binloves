@@ -13,8 +13,13 @@ import type { ReactNode } from 'react';
  * Memoised so the value is the same object for the life of the app.
  */
 interface PublishContextValue {
-  /** Call after any successful save. */
-  notifyChange: () => void;
+  /**
+   * Call after a successful save, with what was saved — "Cập nhật sản phẩm
+   * thành công", "Đã xoá danh mục". The caller names it because only the
+   * caller knows; a toast written here could say nothing more specific than
+   * "đã lưu", which is the part the owner could already see.
+   */
+  notifyChange: (message: string) => void;
   dismiss: () => void;
 }
 
@@ -41,26 +46,31 @@ const PublishContext = createContext<PublishContextValue | null>(null);
   implying it had not gone through, and then said something that reads like a
   failure.
 
-  What is left is the one fact worth stating, stated once.
+  What is left says what the owner just did, on the screen they did it on.
+  Nothing about the website: this admin writes to a database that the site
+  reads per request, so there is no second place for a change to travel to and
+  no delay worth mentioning. Telling someone their edit "has reached the
+  website" invites them to go and check, which is work the old architecture
+  created and this one does not.
 */
 export function PublishProvider({ children }: { children: ReactNode }) {
-  const [shown, setShown] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const notifyChange = useCallback(() => setShown(true), []);
-  const dismiss = useCallback(() => setShown(false), []);
+  const notifyChange = useCallback((text: string) => setMessage(text), []);
+  const dismiss = useCallback(() => setMessage(null), []);
 
   useEffect(() => {
-    if (!shown) return;
-    const t = window.setTimeout(() => setShown(false), 3000);
+    if (message === null) return;
+    const t = window.setTimeout(() => setMessage(null), 3000);
     return () => window.clearTimeout(t);
-  }, [shown]);
+  }, [message]);
 
   const actions = useMemo(() => ({ notifyChange, dismiss }), [notifyChange, dismiss]);
 
   return (
     <PublishContext.Provider value={actions}>
       {children}
-      {shown && <SavedToast onDismiss={dismiss} />}
+      {message !== null && <SavedToast message={message} onDismiss={dismiss} />}
     </PublishContext.Provider>
   );
 }
@@ -71,12 +81,13 @@ export function usePublish() {
   return ctx;
 }
 
-function SavedToast({ onDismiss }: { onDismiss: () => void }) {
+function SavedToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
     <div className="publish-toast publish-toast--ok" role="status" aria-live="polite">
       <div className="publish-toast__body">
-        <p className="publish-toast__title">Đã lưu</p>
-        <p className="publish-toast__detail">Website đã cập nhật, khách truy cập thấy ngay.</p>
+        {/* One line. A second line here would be the place a sentence about
+            the website crept back in. */}
+        <p className="publish-toast__title">{message}</p>
       </div>
       <button type="button" className="publish-toast__close" onClick={onDismiss} aria-label="Đóng">
         ×

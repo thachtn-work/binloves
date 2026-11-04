@@ -56,7 +56,7 @@ export function ContactChannelPage() {
     },
     // No refetch after: the order just written is the order the API was told
     // to store, so asking for it back redraws the same rows.
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã lưu thứ tự kênh liên hệ'),
   });
 
   const remove = useMutation({
@@ -66,7 +66,7 @@ export function ContactChannelPage() {
       setToDelete(null);
       return { previous: removeRow<ContactChannel>(queryClient, ['contact-channels'], id) };
     },
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã xoá kênh liên hệ'),
     onError: (err, _id, context) => {
       restoreList(queryClient, ['contact-channels'], context?.previous);
       setError(errorMessage(err));
@@ -189,7 +189,7 @@ function ChannelRow({
     // other rows' inputs underneath whatever the owner was doing.
     onSuccess: (saved) => {
       upsertRow(queryClient, ['contact-channels'], saved, 'tail');
-      notifyChange();
+      notifyChange('Cập nhật kênh liên hệ thành công');
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
     },
@@ -277,7 +277,7 @@ function ChannelCreateCard({ usedTypes, onDone }: { usedTypes: Set<string>; onDo
     // 'tail': the API gives a new channel max(sortOrder) + 1.
     onSuccess: (saved) => {
       upsertRow(queryClient, ['contact-channels'], saved, 'tail');
-      notifyChange();
+      notifyChange('Thêm kênh liên hệ thành công');
       onDone();
     },
     onError: (err) => setError(errorMessage(err)),

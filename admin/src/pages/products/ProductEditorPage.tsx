@@ -94,7 +94,7 @@ export function ProductEditorPage({ mode }: { mode: 'create' | 'edit' }) {
       // sortOrder ascending then createdAt descending, and a new one keeps
       // sortOrder 0.
       upsertRow(queryClient, ['products'], saved, 'head');
-      notifyChange();
+      notifyChange(mode === 'create' ? 'Thêm sản phẩm thành công' : 'Cập nhật sản phẩm thành công');
       // `replace`, so Back from the list does not walk into the form that was
       // just submitted and offer to submit it again.
       navigate('/san-pham', {

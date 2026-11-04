@@ -58,7 +58,7 @@ export function CategoryListPage() {
       // and fetch. 'tail' is where a new one lands: the API gives it
       // max(sortOrder) + 1, which puts it last.
       upsertRow(queryClient, ['categories'], saved, 'tail');
-      notifyChange();
+      notifyChange(wasCreate ? 'Thêm danh mục thành công' : 'Cập nhật danh mục thành công');
       setEditing(null);
       if (wasCreate) {
         // The panel closes onto the list with the new row briefly highlighted,
@@ -93,7 +93,7 @@ export function CategoryListPage() {
     // No refetch once it lands: the order written above is the order the
     // API was just told to store, so asking for it back only redraws the
     // table with the rows it already has.
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã lưu thứ tự danh mục'),
   });
 
   const remove = useMutation({
@@ -104,7 +104,7 @@ export function CategoryListPage() {
       setToDelete(null);
       return { previous: removeRow<Category>(queryClient, ['categories'], id) };
     },
-    onSuccess: () => notifyChange(),
+    onSuccess: () => notifyChange('Đã xoá danh mục'),
     onError: (err, _id, context) => {
       restoreList(queryClient, ['categories'], context?.previous);
       setError(errorMessage(err));
