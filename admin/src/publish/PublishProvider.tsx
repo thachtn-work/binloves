@@ -1,111 +1,66 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../lib/api';
-import type { PublishStatus } from '../lib/types';
-
-type Phase = 'idle' | 'pending' | 'building' | 'done' | 'failed' | 'unknown';
 
 /**
- * Only the two actions, deliberately — `phase` is not on here.
+ * Only the two actions, deliberately — the phase is not on here.
  *
- * While a build is running this polls every two seconds for up to three
- * minutes, and `phase` changes several times along the way. Handing `phase` to
- * consumers through this context meant every one of those ticks re-rendered
- * every page that had ever called `usePublish()`, including the product table
- * sitting behind the panel. No page ever read it; they all want `notifyChange`
- * and nothing else. The toast below is the one thing that needs the phase, and
- * it lives inside the provider where the state already is.
+ * A context value that changes re-renders every consumer, and `usePublish()`
+ * is called from nine pages. Holding the toast's state in here meant each
+ * change to it redrew the product table sitting behind the toast. No page
+ * ever read it; they all want `notifyChange` and nothing else, and the toast
+ * lives inside the provider where the state already is.
  *
- * Memoised so the value is the same object for the life of the app: a context
- * value rebuilt on every render re-renders every consumer whatever is in it.
+ * Memoised so the value is the same object for the life of the app.
  */
 interface PublishContextValue {
-  /** Call after any successful save so the owner sees the site catching up. */
+  /** Call after any successful save. */
   notifyChange: () => void;
   dismiss: () => void;
 }
 
 const PublishContext = createContext<PublishContextValue | null>(null);
 
-const POLL_MS = 2000;
-// Debounce on the API is ~8s, plus build time. Give up well after that rather
-// than polling forever if the builder is wedged.
-const GIVE_UP_MS = 3 * 60 * 1000;
+/*
+  Saving is the whole of publishing now, so this says so and gets out of the way.
 
+  It used to poll /publish/status every two seconds for up to three minutes,
+  narrating a build: "Website sẽ hiển thị sau khoảng 10-30 giây", then "Đang
+  dựng lại trang". That was true of the version this shop ran before, where a
+  save kicked off a static rebuild. It is not true now — the site renders per
+  request, and a save only drops a cached snapshot, which is done before the
+  response reaches the browser.
+
+  The narration had also stopped working, in a way nobody would report as a
+  bug because it looked like slowness. The admin recorded the save time when
+  the response arrived; the server recorded the clear while still handling the
+  request, a millisecond earlier. The panel waited for a build that finished
+  *after* the save, so the comparison could never come true. Measured against
+  the real backend: 91 polls, 181 seconds, ending on "Chưa rõ trạng thái
+  website — không kết nối được tới dịch vụ cập nhật website." Every save. For
+  an owner who had just corrected a price, the admin spent three minutes
+  implying it had not gone through, and then said something that reads like a
+  failure.
+
+  What is left is the one fact worth stating, stated once.
+*/
 export function PublishProvider({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<Phase>('idle');
-  const savedAtRef = useRef<number>(0);
-  const timerRef = useRef<number | undefined>(undefined);
+  const [shown, setShown] = useState(false);
 
-  const stop = useCallback(() => {
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    timerRef.current = undefined;
-  }, []);
-
-  const notifyChange = useCallback(() => {
-    savedAtRef.current = Date.now();
-    setPhase('pending');
-  }, []);
-
-  const dismiss = useCallback(() => {
-    stop();
-    setPhase('idle');
-  }, [stop]);
+  const notifyChange = useCallback(() => setShown(true), []);
+  const dismiss = useCallback(() => setShown(false), []);
 
   useEffect(() => {
-    if (phase !== 'pending' && phase !== 'building') return;
-
-    async function poll() {
-      try {
-        const { data } = await api.get<PublishStatus>('/publish/status');
-
-        if (!data.reachable) {
-          setPhase('unknown');
-          stop();
-          return;
-        }
-
-        if (data.isBuilding) {
-          setPhase('building');
-          return;
-        }
-
-        const finished = data.lastBuild?.finishedAt ?? data.lastBuild?.at;
-        // Only trust a build that finished *after* this save; an older
-        // successful build says nothing about the change just made.
-        if (finished && new Date(finished).getTime() > savedAtRef.current) {
-          setPhase(data.lastBuild?.status === 'success' ? 'done' : 'failed');
-          stop();
-          return;
-        }
-
-        if (Date.now() - savedAtRef.current > GIVE_UP_MS) {
-          setPhase('unknown');
-          stop();
-        }
-      } catch {
-        setPhase('unknown');
-        stop();
-      }
-    }
-
-    void poll();
-    timerRef.current = window.setInterval(poll, POLL_MS);
-    return stop;
-  }, [phase, stop]);
-
-  useEffect(() => {
-    if (phase !== 'done') return;
-    const t = window.setTimeout(() => setPhase('idle'), 4000);
+    if (!shown) return;
+    const t = window.setTimeout(() => setShown(false), 3000);
     return () => window.clearTimeout(t);
-  }, [phase]);
+  }, [shown]);
 
   const actions = useMemo(() => ({ notifyChange, dismiss }), [notifyChange, dismiss]);
 
   return (
     <PublishContext.Provider value={actions}>
       {children}
-      <PublishToast phase={phase} onDismiss={dismiss} />
+      {shown && <SavedToast onDismiss={dismiss} />}
     </PublishContext.Provider>
   );
 }
@@ -116,48 +71,12 @@ export function usePublish() {
   return ctx;
 }
 
-const COPY: Record<Exclude<Phase, 'idle'>, { title: string; detail: string; tone: string }> = {
-  pending: {
-    title: 'Đang cập nhật lên website',
-    detail: 'Thay đổi đã lưu. Website sẽ hiển thị sau khoảng 10-30 giây.',
-    tone: 'working',
-  },
-  building: {
-    title: 'Đang cập nhật lên website',
-    detail: 'Đang dựng lại trang, bạn có thể tiếp tục làm việc.',
-    tone: 'working',
-  },
-  done: {
-    title: 'Đã cập nhật lên website',
-    detail: 'Khách truy cập đã thấy nội dung mới.',
-    tone: 'ok',
-  },
-  failed: {
-    title: 'Cập nhật website chưa thành công',
-    detail: 'Dữ liệu đã lưu an toàn, nhưng website vẫn giữ bản cũ. Thử lại hoặc báo kỹ thuật.',
-    tone: 'bad',
-  },
-  unknown: {
-    title: 'Chưa rõ trạng thái website',
-    detail: 'Dữ liệu đã lưu. Không kết nối được tới dịch vụ cập nhật website.',
-    tone: 'warn',
-  },
-};
-
-function PublishToast({ phase, onDismiss }: { phase: Phase; onDismiss: () => void }) {
-  if (phase === 'idle') return null;
-  const copy = COPY[phase];
-
+function SavedToast({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className={`publish-toast publish-toast--${copy.tone}`} role="status" aria-live="polite">
+    <div className="publish-toast publish-toast--ok" role="status" aria-live="polite">
       <div className="publish-toast__body">
-        <p className="publish-toast__title">
-          {(phase === 'pending' || phase === 'building') && (
-            <span className="publish-toast__spinner" aria-hidden="true" />
-          )}
-          {copy.title}
-        </p>
-        <p className="publish-toast__detail">{copy.detail}</p>
+        <p className="publish-toast__title">Đã lưu</p>
+        <p className="publish-toast__detail">Website đã cập nhật, khách truy cập thấy ngay.</p>
       </div>
       <button type="button" className="publish-toast__close" onClick={onDismiss} aria-label="Đóng">
         ×

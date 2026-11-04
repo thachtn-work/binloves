@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import type { Banner, Category, Collection, ContactChannel, Product, PublishStatus } from '../lib/types';
+import type { Banner, Category, Collection, ContactChannel, Product } from '../lib/types';
 import { Loading, PageHead } from '../components/ui';
 
 export function DashboardPage() {
@@ -24,11 +24,6 @@ export function DashboardPage() {
   const channels = useQuery({
     queryKey: ['contact-channels'],
     queryFn: async () => (await api.get<ContactChannel[]>('/contact-channels')).data,
-  });
-  const publish = useQuery({
-    queryKey: ['publish-status'],
-    queryFn: async () => (await api.get<PublishStatus>('/publish/status')).data,
-    refetchInterval: 30_000,
   });
 
   const loading = products.isLoading || categories.isLoading || collections.isLoading;
@@ -95,48 +90,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="fieldset">
-          <h2 className="fieldset__title">Trạng thái website</h2>
-          <p className="fieldset__hint">
-            Mỗi khi bạn lưu thay đổi, website được dựng lại sau khoảng 10-30 giây.
-          </p>
-          <PublishSummary status={publish.data} loading={publish.isLoading} />
-        </div>
-      </div>
     </>
   );
 }
 
-function PublishSummary({ status, loading }: { status?: PublishStatus; loading: boolean }) {
-  if (loading) return <p className="field__hint">Đang kiểm tra…</p>;
-
-  if (!status?.reachable) {
-    return (
-      <div className="alert alert--warn" style={{ marginBottom: 0 }}>
-        Không kết nối được tới dịch vụ cập nhật website. Thay đổi vẫn được lưu, nhưng website
-        chưa được dựng lại. Vui lòng báo kỹ thuật.
-      </div>
-    );
-  }
-
-  if (status.isBuilding) {
-    return <p className="field__hint">Đang dựng lại website…</p>;
-  }
-
-  if (!status.lastBuild) {
-    return <p className="field__hint">Website chưa được dựng lần nào.</p>;
-  }
-
-  const when = new Date(status.lastBuild.finishedAt ?? status.lastBuild.at).toLocaleString('vi-VN');
-
-  if (status.lastBuild.status === 'failed') {
-    return (
-      <div className="alert alert--bad" style={{ marginBottom: 0 }}>
-        Lần cập nhật gần nhất ({when}) không thành công. Website vẫn đang hiển thị bản trước đó.
-      </div>
-    );
-  }
-
-  return <p className="field__hint">Cập nhật gần nhất: {when} — thành công.</p>;
-}
