@@ -1,39 +1,70 @@
 /*
-  Light, quiet, high-legibility: this is a tool a shop owner uses during the
-  working day, not a showpiece. The accent is a muted version of the landing's
-  plum so the two read as one brand without the admin going dark.
+  The palette this shop's admin had before the rebuild, restored on request.
+
+  It is Microsoft's Fluent set — #0078d4 and the warm-grey ramp under it — and
+  it arrived here because the person who built the first version reached for
+  it. That is not why it is back. It is back because the owner ran this shop
+  on it for a year: which blue means "press this", which orange means "careful",
+  where the eye goes first on a row. The rebuild replaced all of that at once
+  with a palette chosen for a different shop, and asked them to learn the job
+  again. Taste is not the argument here; a year of habit is.
+
+  Changed from the original in exactly one place, noted at .btn--danger.
 */
 :root {
-  --bg: #f7f5f7;
+  color-scheme: light;
+
+  /* Fluent communication blue. Buttons, the selected nav item, links, focus. */
+  --accent: #0078d4;
+  --accent-hover: #106ebe;
+  --accent-soft: #eff6fc;
+  --accent-fg: #ffffff;
+  --ring-focus: rgba(0, 120, 212, 0.18);
+
+  /* The second colour, and the reason this admin never looked monochrome:
+     orange carried "delete" where most products use red. */
+  --warn-accent: #ff8c00;
+  --warn-accent-soft: #fed9cc;
+
+  --bg: #f3f2f1;        /* gray-20, the page */
   --surface: #ffffff;
-  --surface-sunken: #f1eef2;
-  --border: #e3dee7;
-  --border-strong: #cfc7d6;
+  --surface-sunken: #faf9f8;   /* gray-10, table headers and wells */
+  --surface-hover: #faf9f8;
+  --item-hover: #faf9f8;
+  --secondary: #f3f2f1;
+  --secondary-hover: #edebe9;
 
-  --text: #1d1922;
-  --muted: #6c6579;
-  --faint: #938c9e;
+  --border: #edebe9;           /* gray-30 */
+  --border-strong: #e1dfdd;    /* gray-40 */
 
-  --accent: #7a4a5e;
-  --accent-hover: #633c4d;
-  --accent-soft: #f5ebef;
+  --text: #323130;             /* gray-90 */
+  --muted: #605e5c;            /* gray-80 */
+  --faint: #797775;            /* gray-70 */
 
-  --ok: #1f6f52;
-  --ok-soft: #e6f2ed;
-  --bad: #b3261e;
-  --bad-soft: #fcebea;
-  --warn: #8a5a00;
-  --warn-soft: #fdf2e0;
+  --ok: #107c10;
+  --ok-soft: #dff6dd;
+  --bad: #a4262c;
+  --bad-soft: #fde7e9;
+  --warn: #8a5700;
+  --warn-soft: #fff4ce;
+  --neutral: #605e5c;
+  --neutral-soft: #f3f2f1;
 
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
+  /* 4 / 6 / 8, the original's scale. Softer than the 12px the rebuild used,
+     and part of why that version read as a different product. */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
 
-  --shadow-sm: 0 1px 2px rgba(29, 25, 34, 0.06);
-  --shadow: 0 4px 16px rgba(29, 25, 34, 0.08);
-  --shadow-lg: 0 12px 40px rgba(29, 25, 34, 0.16);
+  /* Fluent's depth: a tight ambient ring plus a directional drop. Cards here
+     really do carry one — this admin separated things with shadow, not with
+     white-against-grey. */
+  --shadow-sm: 0 0 2px rgba(0, 0, 0, 0.12), 0 2px 2px rgba(0, 0, 0, 0.14);
+  --shadow: 0 0 2px rgba(0, 0, 0, 0.12), 0 4px 4px rgba(0, 0, 0, 0.14);
+  --shadow-lg: 0 0 8px rgba(0, 0, 0, 0.12), 0 16px 16px rgba(0, 0, 0, 0.14);
 
-  --sidebar-w: 248px;
+  --sidebar-w: 250px;
+  --topbar-h: 64px;
 }
 
 *,
@@ -91,11 +122,13 @@ h3 {
 
 .sidebar {
   background: var(--surface);
+  /* The original kept a rule here, and the content area beside it is grey
+     rather than white, so the line is doing a second job: it squares off the
+     brand block at the top. */
   border-right: 1px solid var(--border);
-  padding: 20px 14px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 22px;
   position: sticky;
   top: 0;
   height: 100dvh;
@@ -103,64 +136,95 @@ h3 {
 }
 
 .sidebar__brand {
-  padding: 0 10px;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
 }
 
+/* One line, bold, the shop's name and the word Admin — as it read before. */
 .sidebar__shop {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
 }
 
-.sidebar__role {
-  font-size: 12px;
-  color: var(--faint);
-}
-
-.navgroup + .navgroup {
-  margin-top: 18px;
-}
-
-.navgroup__label {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--faint);
-  padding: 0 10px;
-  margin-bottom: 6px;
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 16px;
 }
 
 .navlink {
-  display: block;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  font-size: 14px;
-  transition: background-color 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  color: var(--faint);
+  font-size: 15px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.navlink__icon {
+  flex-shrink: 0;
 }
 
 .navlink:hover {
-  background: var(--surface-sunken);
+  background: var(--item-hover);
   color: var(--text);
 }
 
+/* Blue on pale blue, which is the single most recognisable thing on this
+   screen: it is how the owner has known "you are here" for a year. */
 .navlink.is-active {
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.sidebar__foot {
-  margin-top: auto;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
+/* ---------- Top bar ---------- */
+
+/*
+  Who is signed in, and the way out. It sat across the top before, not tucked
+  at the foot of the menu, and that is where a hand goes looking for it.
+*/
+.topbar {
+  height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar__who {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.contentcol {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* The padding is held in variables so a page that wants to fill the viewport
    can subtract exactly what the frame took, at whatever the current
    breakpoint set it to. */
 .content {
-  --pad-top: 28px;
-  --pad-bottom: 64px;
+  /* 32px on every side, which is what this admin used before: one spacing
+     step, applied evenly, rather than a tall foot of empty page. */
+  --pad-top: 32px;
+  --pad-bottom: 32px;
   padding: var(--pad-top) 32px var(--pad-bottom);
   min-width: 0;
 }
@@ -214,7 +278,12 @@ h3 {
 }
 
 .pagehead__title {
-  font-size: 22px;
+  /* 32px — --text-3xl in the old admin's scale. The rebuild dropped it to 22
+     and the page lost its anchor: the name of where you are should be the
+     first thing read, not something the table has to compete with. */
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .pagehead__hint {
@@ -238,7 +307,7 @@ h3 {
 }
 
 .backlink:hover {
-  color: var(--accent);
+  color: var(--text);
 }
 
 /* ---------- Buttons ---------- */
@@ -264,7 +333,7 @@ h3 {
 
 .btn--primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -281,9 +350,23 @@ h3 {
   background: var(--surface-sunken);
 }
 
+/*
+  Grey until you reach for it.
+
+  Every row carries a Xoá, so painting them all red put a dozen of the page's
+  only red marks down one column — louder than the prices, louder than a
+  hidden product, and all of it saying the same nothing. Red here is meant to
+  catch the hand on its way to an irreversible thing, which it can only do if
+  it appears when the hand arrives.
+*/
 .btn--danger {
   background: transparent;
   border-color: transparent;
+  color: var(--muted);
+}
+
+.btn--danger:hover:not(:disabled),
+.btn--danger:focus-visible {
   color: var(--bad);
 }
 
@@ -298,11 +381,15 @@ h3 {
 
 /* ---------- Cards & sections ---------- */
 
+/* Shadow, not a hairline. The original lifted its cards off the grey page
+   instead of outlining them, which is most of why the two versions read as
+   different products even before the colour is noticed. */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .card + .card {
@@ -388,7 +475,7 @@ h3 {
 .select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--ring-focus);
 }
 
 .input[aria-invalid='true'] {
@@ -488,13 +575,14 @@ h3 {
 
 .table th {
   text-align: left;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: 14px;
+  color: var(--text);
   font-weight: 600;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px;
+  background: var(--surface-sunken);
+  /* Two pixels. The heavier rule under the header is part of the old table's
+     signature — it reads as a lid on the list rather than one more divider. */
+  border-bottom: 2px solid var(--border-strong);
 }
 
 .table td {
@@ -508,13 +596,185 @@ h3 {
 }
 
 .table tbody tr:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
+}
+
+/*
+  Row buttons as soft pills: blue to open, orange to delete.
+
+  Orange rather than red is this admin's own convention, and it is a better
+  one than it looks — red is the colour of something already wrong, while the
+  thing on this row has not gone wrong yet. The pair also reads at a glance
+  across a long list, which is how these two buttons are actually used.
+*/
+.table__actions .btn--secondary {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.table__actions .btn--secondary:hover:not(:disabled) {
+  background: #deecf9;
+}
+
+.table__actions .btn--danger {
+  background: var(--warn-accent-soft);
+  border-color: transparent;
+  /* The one value changed from the original palette. It used #ff8c00 here,
+     which on this background is about 1.8:1 — the label was decoration more
+     than text, and unreadable for anyone whose sight is less than perfect.
+     Darkened to clear 4.5:1. Same orange to the eye, now actually legible. */
+  color: #8a4b00;
+  font-weight: 500;
+}
+
+.table__actions .btn--danger:hover:not(:disabled) {
+  background: #fccfbe;
+  color: #7a4200;
+}
+
+/* Plain body text, as it was. A monospace slug is tidier to a developer's eye
+   and wrong for this reader: the shop owner is matching a word, not auditing
+   an identifier, and the narrower face only made it harder to read. */
+.cellslug {
+  color: var(--text);
+}
+
+/* The only row state worth marking: this one is not on the website. */
+.statusoff {
+  color: var(--bad);
+  font-weight: 500;
+}
+
+/* ---------- Two-column picker ---------- */
+
+.picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.picker__col {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.picker__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.picker__note,
+.picker__empty {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 400px, the height the old picker used: tall enough to judge a run of
+   products without the page itself having to scroll. */
+.picker__list {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.picker__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker__row:last-child {
+  border-bottom: 0;
+}
+
+.picker__row:hover {
+  background: var(--item-hover);
+}
+
+/* The chosen side is not one big button: it holds the order controls, and a
+   button inside a button is not something a browser will render. */
+.picker__row--chosen {
+  cursor: default;
+}
+
+.picker__arrow {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.picker__row--chosen .picker__arrow {
+  cursor: pointer;
+}
+
+.picker__text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.picker__name {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thumb--sm {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 900px) {
+  .picker {
+    grid-template-columns: 1fr;
+  }
 }
 
 .table__actions {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+  /* The buttons name their action in words, so they must keep it on one line:
+     a column squeezed to its header's width broke "Thứ tự sản phẩm" over four
+     lines and made every row in the table twice as tall. */
+  white-space: nowrap;
+}
+
+/*
+  Prices, so the thousands separators line up down the column.
+
+  Be Vietnam Pro draws proportional figures by default, which means 1.290.000
+  and 890.000 do not share a single vertical edge. Scanning a price list then
+  becomes reading every row instead of running an eye down one. This is the
+  one place in the admin where digits are compared against each other rather
+  than read, so it is the one place that asks for the tabular set.
+*/
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
 .cellmain {
@@ -540,7 +800,7 @@ h3 {
 }
 
 .linklike:hover {
-  color: var(--accent);
+  color: var(--text);
   text-decoration: underline;
 }
 
@@ -560,7 +820,11 @@ h3 {
   border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--surface-sunken);
-  border: 1px solid var(--border);
+  /* The stronger of the two border tokens, because when this box is empty the
+     border IS the thing being shown: "no picture yet", not "a picture that
+     happens to be grey". The hairline is for dividing things that are
+     already there. */
+  border: 1px solid var(--border-strong);
 }
 
 /* Categories are drawn as circles on the website, so their preview is one
@@ -672,7 +936,7 @@ h3 {
 .chip.is-on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 /* Marks the files nothing points at — the ones worth looking at when the
@@ -782,8 +1046,8 @@ h3 {
 /* Sale windows. "Scheduled" and "expired" both mean the website is showing the
    full price right now, so neither may look like the running discount does. */
 .tag--soon {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--neutral-soft);
+  color: var(--neutral);
 }
 
 .tag--over {
@@ -849,8 +1113,8 @@ h3 {
 }
 
 .tab.is-active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  color: var(--text);
+  border-bottom-color: var(--text);
   font-weight: 500;
 }
 
@@ -973,7 +1237,7 @@ h3 {
   height: 21px;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
   font-size: 12px;
   font-weight: 600;
   display: grid;
@@ -1070,6 +1334,57 @@ h3 {
   background: rgba(29, 25, 34, 0.28);
   z-index: 90;
   animation: fade-in 0.18s ease-out;
+}
+
+/* The modal's own scrim is darker, because a modal asks the page behind it to
+   stop existing for a moment, while a panel only asks it to step aside. This
+   is the value the shop is used to. */
+.surface-scrim--modal {
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+}
+
+/*
+  A box in the middle of the page — the shape this admin used for short forms
+  before the rebuild, and the one its owner reaches for.
+
+  Capped at 90vh and allowed to scroll inside, so a form taller than the
+  window stays reachable instead of running off the bottom of the screen.
+*/
+.surface--modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 91;
+  width: 90%;
+  max-height: 90vh;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.12), 0 20px 20px rgba(0, 0, 0, 0.14);
+  animation: modal-in 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+}
+
+/* 16px on the header, 24px in the body — the old spacing, tighter than the
+   panel's because a centred box has no list beside it to line up with. */
+.surface--modal .surface__head {
+  padding: 16px;
+}
+
+.surface--modal .surface__body {
+  padding: 24px;
+}
+
+.surface--modal .surface__foot {
+  padding: 0 24px 24px;
+  border-top: 0;
 }
 
 .surface {
@@ -1269,7 +1584,7 @@ h3 {
    just add?" without making the user scan the list. */
 @keyframes row-flash {
   from {
-    background: var(--accent-soft);
+    background: var(--secondary);
   }
 }
 
@@ -1333,48 +1648,17 @@ h3 {
   above the gradients and below the tint, so the card stays readable.
 */
 .login {
-  --login-image: none;
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 20px;
-  position: relative;
-  isolation: isolate;
-  background-color: #15111a;
-}
-
-.login::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background-image:
-    var(--login-image),
-    radial-gradient(58% 52% at 20% 16%, rgba(231, 154, 140, 0.4), transparent 68%),
-    radial-gradient(50% 46% at 86% 22%, rgba(143, 179, 163, 0.26), transparent 66%),
-    radial-gradient(75% 65% at 72% 92%, rgba(140, 82, 106, 0.62), transparent 72%),
-    /* Darkens the edges so the card sits in the brightest part of the frame. */
-    radial-gradient(120% 95% at 50% 50%, transparent 45%, rgba(10, 7, 14, 0.55));
-  background-size: cover;
-  background-position: center;
-}
-
-/* Fine grain stops the large gradients from banding into visible steps on
-   cheaper displays. */
-.login::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0.5;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background: var(--bg);
 }
 
 .login__brand {
   text-align: center;
-  margin-bottom: 18px;
-  color: #f2ece6;
+  margin-bottom: 20px;
+  color: var(--text);
 }
 
 .login__brand-name {
@@ -1385,16 +1669,15 @@ h3 {
 
 .login__brand-sub {
   font-size: 13px;
-  color: rgba(242, 236, 230, 0.6);
+  color: var(--muted);
   margin-top: 2px;
 }
 
 .login__card {
   width: min(400px, 100%);
   background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 60px rgba(10, 7, 14, 0.5);
   padding: 28px;
 }
 

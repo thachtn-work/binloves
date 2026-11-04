@@ -123,7 +123,7 @@ export function CategoryListPage() {
   return (
     <>
       <PageHead
-        title="Danh mục"
+        title="Quản lý Danh mục"
         // While searching the count replaces the instruction, so the header
         // keeps its height instead of growing a line.
         hint={
@@ -141,7 +141,7 @@ export function CategoryListPage() {
               />
             )}
             <button type="button" className="btn btn--primary" onClick={openCreate}>
-              Thêm danh mục
+              + Thêm Danh mục Mới
             </button>
           </>
         }
@@ -167,9 +167,10 @@ export function CategoryListPage() {
                 <tr>
                   <th style={{ width: 78 }}>Thứ tự</th>
                   <th style={{ width: 72 }}>Ảnh</th>
-                  <th>Danh mục</th>
-                  <th style={{ width: 120 }}>Hiển thị</th>
-                  <th />
+                  <th>Tên</th>
+                  <th>Slug</th>
+                  <th style={{ width: 110 }}>Kích hoạt</th>
+                  <th>Hành động</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,8 +212,12 @@ export function CategoryListPage() {
                           {category.name}
                         </button>
                       </div>
-                      <div className="cellsub">/{category.slug}</div>
                     </td>
+                    {/* Its own column again rather than a grey line under the
+                        name: the slug is what the owner matches against a link
+                        someone has sent them, and that is a comparison down a
+                        column, not a detail about a row. */}
+                    <td className="cellslug">{category.slug}</td>
                     <td>
                       <StatusTag active={category.isActive} />
                     </td>
@@ -250,9 +255,10 @@ export function CategoryListPage() {
       </div>
 
       <EditSurface
+        variant="modal"
         open={editing !== null}
-        width={760}
-        title={editing?.mode === 'edit' ? 'Sửa danh mục' : 'Thêm danh mục'}
+        width={500}
+        title={editing?.mode === 'edit' ? 'Chỉnh sửa Danh mục' : 'Thêm Danh mục Mới'}
         subtitle={editing?.mode === 'edit' ? editing.category.name : 'Danh mục mới sẽ nằm cuối danh sách.'}
         onClose={() => setEditing(null)}
         footer={

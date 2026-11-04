@@ -81,7 +81,7 @@ export function BannerPage() {
                   <th>Liên kết</th>
                   <th style={{ width: 100 }}>Thứ tự</th>
                   <th style={{ width: 120 }}>Hiển thị</th>
-                  <th />
+                  <th>Hành động</th>
                 </tr>
               </thead>
               <tbody>

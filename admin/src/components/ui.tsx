@@ -81,12 +81,17 @@ export function ErrorAlert({ message }: { message: string | null }) {
   );
 }
 
+/*
+  Plain words, the way this admin has always said it.
+
+  A coloured pill per row put a run of green down the column, and since nearly
+  every row is visible that run carried no information — it only drew the eye
+  away from the rare row that is hidden. "Có" and "Không" under a heading that
+  reads "Kích hoạt" answer the question the column asks, and the odd "Không"
+  stands out precisely because nothing around it is shouting.
+*/
 export function StatusTag({ active }: { active: boolean }) {
-  return (
-    <span className={`tag ${active ? 'tag--on' : 'tag--off'}`}>
-      {active ? 'Đang hiện' : 'Đang ẩn'}
-    </span>
-  );
+  return <span className={active ? undefined : 'statusoff'}>{active ? 'Có' : 'Không'}</span>;
 }
 
 // Deleting is the one destructive action in this admin, and the shop owner is

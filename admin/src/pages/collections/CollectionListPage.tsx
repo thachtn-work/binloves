@@ -124,7 +124,7 @@ export function CollectionListPage() {
   return (
     <>
       <PageHead
-        title="Bộ sưu tập"
+        title="Quản lý Sections"
         hint={
           searching
             ? `${visible.length} kết quả cho “${search.trim()}”`
@@ -140,7 +140,7 @@ export function CollectionListPage() {
               />
             )}
             <button type="button" className="btn btn--primary" onClick={openCreate}>
-              Thêm bộ sưu tập
+              + Thêm Section Mới
             </button>
           </>
         }
@@ -166,10 +166,11 @@ export function CollectionListPage() {
                 <tr>
                   <th style={{ width: 78 }}>Thứ tự</th>
                   <th style={{ width: 72 }}>Ảnh</th>
-                  <th>Bộ sưu tập</th>
+                  <th>Tên</th>
+                  <th>Slug</th>
                   <th style={{ width: 130 }}>Số sản phẩm</th>
-                  <th style={{ width: 120 }}>Hiển thị</th>
-                  <th />
+                  <th style={{ width: 110 }}>Kích hoạt</th>
+                  <th>Hành động</th>
                 </tr>
               </thead>
               <tbody>
@@ -203,9 +204,9 @@ export function CollectionListPage() {
                           {collection.name}
                         </button>
                       </div>
-                      <div className="cellsub">/{collection.slug}</div>
                     </td>
-                    <td className="cellsub">{collection._count?.products ?? 0}</td>
+                    <td className="cellslug">{collection.slug}</td>
+                    <td>{collection._count?.products ?? 0}</td>
                     <td>
                       <StatusTag active={collection.isActive} />
                     </td>
@@ -241,14 +242,15 @@ export function CollectionListPage() {
       </div>
 
       <EditSurface
+        variant="modal"
         open={editing !== null}
-        title={editing?.mode === 'edit' ? 'Sửa bộ sưu tập' : 'Thêm bộ sưu tập'}
+        title={editing?.mode === 'edit' ? 'Chỉnh sửa Section' : 'Thêm Section Mới'}
         subtitle={
           editing?.mode === 'edit'
             ? editing.collection.name
             : 'Tạo xong, chọn sản phẩm cho bộ sưu tập ở bước sau.'
         }
-        width={760}
+        width={500}
         onClose={() => setEditing(null)}
         footer={
           <>

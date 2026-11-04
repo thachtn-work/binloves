@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ProductEditorPage } from './pages/products/ProductEditorPage';
 import { ProductListPage } from './pages/products/ProductListPage';
 import { CategoryListPage } from './pages/categories/CategoryListPage';
 import { CategoryDetailPage } from './pages/categories/CategoryDetailPage';
@@ -47,9 +48,14 @@ export function App() {
             >
               <Route index element={<DashboardPage />} />
 
-              {/* Products and categories are created and edited in a panel on
-                  their list page, so they need no routes of their own. */}
+              {/* A product gets its own page to be written on — the form is
+                  long, and this shop's owner learned it as a page. Categories
+                  and sections stay on their list, in a modal, for the same
+                  reason reversed: those forms are short. */}
               <Route path="san-pham" element={<ProductListPage />} />
+              <Route path="san-pham/them" element={<ProductEditorPage mode="create" />} />
+              <Route path="san-pham/:id" element={<ProductEditorPage mode="edit" />} />
+
               <Route path="danh-muc" element={<CategoryListPage />} />
               <Route path="danh-muc/:id" element={<CategoryDetailPage />} />
 

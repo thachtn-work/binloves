@@ -1,7 +1,8 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api';
-import { removeRow, restoreList, upsertRow } from '../../lib/cache';
+import { removeRow, restoreList } from '../../lib/cache';
 import type { Product } from '../../lib/types';
 import {
   ConfirmDialog,
@@ -12,16 +13,12 @@ import {
   StatusTag,
   formatPrice,
 } from '../../components/ui';
-import { EditSurface } from '../../components/EditSurface';
 import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../lib/search';
 import { usePublish } from '../../publish/PublishProvider';
-import { ProductForm, emptyProduct, productToValues, valuesToPayload } from './ProductForm';
-import type { ProductFormValues } from './ProductForm';
 import { MediaThumb } from '../../media/MediaThumb';
 import { countdown, formatVn, saleState } from '../../lib/vn-time';
 
-type Editing = { mode: 'create' } | { mode: 'edit'; product: Product } | null;
 
 function renderPrice(product: Product) {
   const state = saleState(product);
@@ -73,12 +70,10 @@ function renderPrice(product: Product) {
 const ProductRow = memo(function ProductRow({
   product,
   isNew,
-  onEdit,
   onDelete,
 }: {
   product: Product;
   isNew: boolean;
-  onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
 }) {
   const cover = [...product.media].sort((a, b) => a.sortOrder - b.sortOrder)[0];
@@ -87,9 +82,11 @@ const ProductRow = memo(function ProductRow({
       <td>{cover ? <MediaThumb className="thumb" media={cover.media} /> : <div className="thumb" />}</td>
       <td>
         <div className="cellmain">
-          <button type="button" className="linklike" onClick={() => onEdit(product)}>
+          {/* A link, not a button: it goes somewhere, so it should behave like
+              every other link — middle-click, open in a new tab, copy address. */}
+          <Link className="linklike" to={`/san-pham/${product.id}`}>
             {product.name}
-          </button>
+          </Link>
         </div>
         <div className="cellsub">/{product.slug}</div>
       </td>
@@ -100,15 +97,15 @@ const ProductRow = memo(function ProductRow({
         sees, and listing it as the price was the quiet way to believe a
         discount is live when it is not.
       */}
-      <td>{renderPrice(product)}</td>
+      <td className="num">{renderPrice(product)}</td>
       <td>
         <StatusTag active={product.isActive} />
       </td>
       <td>
         <div className="table__actions">
-          <button type="button" className="btn btn--secondary btn--sm" onClick={() => onEdit(product)}>
+          <Link className="btn btn--secondary btn--sm" to={`/san-pham/${product.id}`}>
             Sửa
-          </button>
+          </Link>
           <button type="button" className="btn btn--danger btn--sm" onClick={() => onDelete(product)}>
             Xoá
           </button>
@@ -131,12 +128,10 @@ const ProductRow = memo(function ProductRow({
 const ProductTable = memo(function ProductTable({
   items,
   newId,
-  onEdit,
   onDelete,
 }: {
   items: Product[];
   newId: string | null;
-  onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
 }) {
   return (
@@ -144,12 +139,12 @@ const ProductTable = memo(function ProductTable({
       <table className="table">
         <thead>
           <tr>
-            <th style={{ width: 62 }}>Xem trước</th>
+            <th style={{ width: 72 }}>Ảnh</th>
             <th>Sản phẩm</th>
             <th>Danh mục</th>
-            <th>Giá</th>
-            <th style={{ width: 120 }}>Hiển thị</th>
-            <th />
+            <th className="num">Giá</th>
+            <th style={{ width: 110 }}>Kích hoạt</th>
+            <th>Hành động</th>
           </tr>
         </thead>
         <tbody>
@@ -158,7 +153,6 @@ const ProductTable = memo(function ProductTable({
               key={product.id}
               product={product}
               isNew={product.id === newId}
-              onEdit={onEdit}
               onDelete={onDelete}
             />
           ))}
@@ -171,59 +165,33 @@ const ProductTable = memo(function ProductTable({
 export function ProductListPage() {
   const queryClient = useQueryClient();
   const { notifyChange } = usePublish();
-  const [editing, setEditing] = useState<Editing>(null);
-  const [values, setValues] = useState<ProductFormValues>(emptyProduct);
+  const location = useLocation();
   const [toDelete, setToDelete] = useState<Product | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [panelError, setPanelError] = useState<string | null>(null);
   const [newId, setNewId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+
+  /*
+    The editor page hands back the id of what it just created, and the row
+    lights up for a moment. That answer used to be free — the panel closed onto
+    the list and the id was still in hand — and it is worth carrying across the
+    navigation, because "which one did I just add?" is the first thing the
+    owner asks of a list two hundred rows long.
+  */
+  useEffect(() => {
+    const id = (location.state as { newId?: string } | null)?.newId;
+    if (!id) return;
+    setNewId(id);
+    const t = window.setTimeout(() => setNewId(null), 2600);
+    // Clears the marker from history, so going back to this list later does
+    // not flash a row that was added an hour ago.
+    window.history.replaceState({}, '');
+    return () => window.clearTimeout(t);
+  }, [location.state]);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => (await api.get<Product[]>('/products')).data,
-  });
-
-  const openCreate = useCallback(() => {
-    setPanelError(null);
-    setValues(emptyProduct());
-    setEditing({ mode: 'create' });
-  }, []);
-
-  // Stable across renders, or every row would see a new prop each time the
-  // form state changed and memoising them would buy nothing.
-  const openEdit = useCallback((product: Product) => {
-    setPanelError(null);
-    setValues(productToValues(product));
-    setEditing({ mode: 'edit', product });
-  }, []);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const payload = valuesToPayload(values);
-      if (editing?.mode === 'edit') {
-        return (await api.patch<Product>(`/products/${editing.product.id}`, payload)).data;
-      }
-      return (await api.post<Product>('/products', payload)).data;
-    },
-    onSuccess: (saved) => {
-      const wasCreate = editing?.mode === 'create';
-      // The API answered with the whole product, so the list it belongs to is
-      // already here — fetching it again would only hand back what we hold.
-      // 'head' is where the API puts it: products are ordered by sortOrder
-      // ascending then createdAt descending, and a new one keeps sortOrder 0.
-      upsertRow(queryClient, ['products'], saved, 'head');
-      notifyChange();
-      setEditing(null);
-      if (wasCreate) {
-        // Closing onto the list with the new row highlighted is the point of
-        // editing in a panel: the owner sees what they just added and what is
-        // still missing.
-        setNewId(saved.id);
-        window.setTimeout(() => setNewId(null), 2600);
-      }
-    },
-    onError: (err) => setPanelError(errorMessage(err)),
   });
 
   const remove = useMutation({
@@ -258,7 +226,7 @@ export function ProductListPage() {
   return (
     <>
       <PageHead
-        title="Sản phẩm"
+        title="Quản lý Sản phẩm"
         hint={
           searching
             ? `${visible.length} kết quả cho “${search.trim()}”`
@@ -273,9 +241,9 @@ export function ProductListPage() {
                 placeholder="Tìm sản phẩm, danh mục…"
               />
             )}
-            <button type="button" className="btn btn--primary" onClick={openCreate}>
-              Thêm sản phẩm
-            </button>
+            <Link className="btn btn--primary" to="/san-pham/them">
+              + Thêm Sản phẩm Mới
+            </Link>
           </>
         }
       />
@@ -297,56 +265,10 @@ export function ProductListPage() {
           <ProductTable
             items={visible}
             newId={newId}
-            onEdit={openEdit}
             onDelete={setToDelete}
           />
         )}
       </div>
-
-      <EditSurface
-        open={editing !== null}
-        title={editing?.mode === 'edit' ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
-        subtitle={
-          editing?.mode === 'edit'
-            ? editing.product.name
-            : 'Điền thông tin rồi lưu để đăng lên website.'
-        }
-        // Wider than the other panels: the product form carries four sections
-        // including the image picker.
-        width={760}
-        onClose={() => setEditing(null)}
-        footer={
-          <>
-            <button
-              type="submit"
-              form="product-form"
-              className="btn btn--primary"
-              disabled={save.isPending}
-            >
-              {save.isPending
-                ? 'Đang lưu…'
-                : editing?.mode === 'edit'
-                  ? 'Lưu thay đổi'
-                  : 'Thêm sản phẩm'}
-            </button>
-            <button type="button" className="btn btn--secondary" onClick={() => setEditing(null)}>
-              Huỷ
-            </button>
-          </>
-        }
-      >
-        <form
-          id="product-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPanelError(null);
-            save.mutate();
-          }}
-        >
-          <ErrorAlert message={panelError} />
-          <ProductForm values={values} onChange={setValues} lockSlug={editing?.mode === 'edit'} />
-        </form>
-      </EditSurface>
 
       {toDelete && (
         <ConfirmDialog
