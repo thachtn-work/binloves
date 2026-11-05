@@ -8,12 +8,13 @@ import { ArrayMaxSize, ArrayMinSize, IsArray, IsUUID } from 'class-validator';
  * one transaction rather than firing a burst of swaps that could half-apply.
  */
 export class ReorderProductsDto {
-  @IsUUID('4')
+  // No UUID version pinned: see common/dto/reorder.dto.ts.
+  @IsUUID()
   categoryId: string;
 
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(500)
-  @IsUUID('4', { each: true })
+  @IsUUID(undefined, { each: true })
   ids: string[];
 }

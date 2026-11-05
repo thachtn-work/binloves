@@ -5,6 +5,7 @@ import { ArrayMaxSize, IsArray, IsUUID } from 'class-validator';
 export class SetCollectionProductsDto {
   @IsArray()
   @ArrayMaxSize(500)
-  @IsUUID('4', { each: true })
+  // No UUID version pinned: see common/dto/reorder.dto.ts.
+  @IsUUID(undefined, { each: true })
   productIds: string[];
 }

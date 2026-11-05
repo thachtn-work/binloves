@@ -40,6 +40,7 @@ export class CreateCollectionDto {
    * the first product inside.
    */
   @IsOptional()
-  @IsUUID('4')
+  // No UUID version pinned: see common/dto/reorder.dto.ts.
+  @IsUUID()
   coverMediaId?: string | null;
 }

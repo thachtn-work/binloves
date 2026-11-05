@@ -35,6 +35,7 @@ export class CreateCategoryDto {
    * `@IsOptional()` lets null through, which is what clearing it sends.
    */
   @IsOptional()
-  @IsUUID('4')
+  // No UUID version pinned: see common/dto/reorder.dto.ts.
+  @IsUUID()
   coverMediaId?: string | null;
 }

@@ -152,7 +152,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(30)
-  @IsUUID('4', { each: true })
+  // No UUID version pinned: see common/dto/reorder.dto.ts.
+  @IsUUID(undefined, { each: true })
   mediaIds?: string[];
 
   @IsOptional()
