@@ -6,6 +6,7 @@ import { api, errorMessage } from '../../lib/api';
 import type { Collection, Product } from '../../lib/types';
 import { ErrorAlert, Loading, PageHead, formatPrice } from '../../components/ui';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
+import { useRowDrag } from '../../components/useRowDrag';
 import { MediaThumb } from '../../media/MediaThumb';
 import { usePublish } from '../../publish/PublishProvider';
 
@@ -78,6 +79,19 @@ export function CollectionDetailPage() {
     onError: (err) => setError(errorMessage(err)),
   });
 
+  /*
+    Keyed on the ids themselves, not on product objects: the chosen order is
+    `selected`, and that array exists before the products have arrived, while
+    the rows below are built after the early return. A hook cannot live after
+    an early return — React needs the same hooks in the same order on every
+    render — so it reads the one piece of state that is always here.
+
+    Nothing is saving in the background on this screen: the list is local until
+    the owner presses Lưu, so there is no in-flight move for a second drag to
+    be computed against.
+  */
+  const drag = useRowDrag(selected, (productId) => productId, setSelected);
+
   if (isLoading || loadingProducts) return <Loading />;
 
   const byId = new Map((products ?? []).map((p) => [p.id, p]));
@@ -143,30 +157,41 @@ export function CollectionDetailPage() {
 
         <div className="picker__col">
           <h2 className="picker__title">Sản phẩm được chọn</h2>
-          <p className="picker__note">Thứ tự ở đây là thứ tự khách nhìn thấy trên trang chủ.</p>
+          <p className="picker__note">
+            Kéo tay nắm hoặc dùng mũi tên để sắp xếp. Thứ tự ở đây là thứ tự khách nhìn thấy trên
+            trang chủ.
+          </p>
           <div className="picker__list">
             {chosen.length === 0 ? (
               <p className="picker__empty">Chưa chọn sản phẩm nào.</p>
             ) : (
-              chosen.map((product, index) => (
-                <div key={product.id} className="picker__row picker__row--chosen">
-                  <ArrowLeft
-                    className="picker__arrow"
-                    size={16}
-                    aria-hidden="true"
-                    onClick={() => setSelected(selected.filter((x) => x !== product.id))}
-                  />
-                  <ProductBit product={product} />
-                  {/* Order survives from the newer version, because it is the
-                      thing this screen decides: which product the homepage
-                      shows first. The old picker could not say. */}
-                  <OrderButtons
-                    index={index}
-                    total={chosen.length}
-                    onMove={(from, to) => setSelected(moveItem(selected, from, to))}
-                  />
-                </div>
-              ))
+              chosen.map((product, index) => {
+                const row = drag.rowProps(product.id);
+                return (
+                  <div
+                    key={product.id}
+                    data-row-key={row['data-row-key']}
+                    className={`picker__row picker__row--chosen ${row.className}`.trim()}
+                  >
+                    <ArrowLeft
+                      className="picker__arrow"
+                      size={16}
+                      aria-hidden="true"
+                      onClick={() => setSelected(selected.filter((x) => x !== product.id))}
+                    />
+                    <ProductBit product={product} />
+                    {/* Order survives from the newer version, because it is the
+                        thing this screen decides: which product the homepage
+                        shows first. The old picker could not say. */}
+                    <OrderButtons
+                      index={index}
+                      total={chosen.length}
+                      onMove={(from, to) => setSelected(moveItem(selected, from, to))}
+                      grip={drag.gripProps(product.id)}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

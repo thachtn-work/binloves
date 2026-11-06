@@ -91,7 +91,7 @@ export function CategoryDetailPage() {
 
       <PageHead
         title={`Thứ tự sản phẩm — ${category?.name ?? ''}`}
-        hint="Kéo một dòng để đổi chỗ, hoặc dùng mũi tên. Thứ tự ở đây chính là thứ tự khách nhìn thấy trên trang danh mục ngoài website."
+        hint="Kéo tay nắm ở cột Thứ tự, hoặc dùng mũi tên, để đổi chỗ. Thứ tự ở đây chính là thứ tự khách nhìn thấy trên trang danh mục ngoài website."
       />
 
       <ErrorAlert message={error} />
@@ -114,7 +114,7 @@ export function CategoryDetailPage() {
                     <th>Sản phẩm</th>
                     <th style={{ width: 140 }}>Giá</th>
                     <th style={{ width: 120 }}>Hiển thị</th>
-                    <th style={{ width: 92 }}>Thứ tự</th>
+                    <th style={{ width: 106 }}>Thứ tự</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,18 +130,7 @@ export function CategoryDetailPage() {
                           )}
                         </td>
                         <td>
-                          <div className="cellmain">
-                            <span
-                              className="draghandle"
-                              role="button"
-                              tabIndex={-1}
-                              aria-label="Kéo để đổi thứ tự"
-                              {...drag.gripProps(product)}
-                            >
-                              ⠿
-                            </span>
-                            {product.name}
-                          </div>
+                          <div className="cellmain">{product.name}</div>
                           <div className="cellsub">/{product.slug}</div>
                         </td>
                         <td className="cellsub">{formatPrice(product.salePrice ?? product.price)}</td>
@@ -159,6 +148,7 @@ export function CategoryDetailPage() {
                                 direction: to < from ? 'up' : 'down',
                               })
                             }
+                            grip={drag.gripProps(product)}
                           />
                         </td>
                       </tr>

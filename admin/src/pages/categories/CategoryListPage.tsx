@@ -6,6 +6,7 @@ import type { Category } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
 import { MediaThumb } from '../../media/MediaThumb';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
+import { useRowDrag } from '../../components/useRowDrag';
 import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../lib/search';
 import { EditSurface } from '../../components/EditSurface';
@@ -120,6 +121,19 @@ export function CategoryListPage() {
     if (next !== list) reorder.mutate(next.map((c) => c.id));
   }
 
+  /*
+    Dragging works on the whole list, not the filtered view, and is switched
+    off while a search narrows it — the same rule the arrows already follow.
+    Rows on screen during a search are not consecutive, so "between these two"
+    does not name one position in the real order.
+  */
+  const drag = useRowDrag(
+    list,
+    (c) => c.id,
+    (ids) => reorder.mutate(ids),
+    reorder.isPending || searching,
+  );
+
   return (
     <>
       <PageHead
@@ -129,7 +143,7 @@ export function CategoryListPage() {
         hint={
           searching
             ? `${visible.length} kết quả cho “${search.trim()}”`
-            : 'Nhóm sản phẩm theo danh mục. Dùng mũi tên để đổi thứ tự hiển thị trên website.'
+            : 'Nhóm sản phẩm theo danh mục. Kéo tay nắm ở cột Thứ tự, hoặc dùng mũi tên, để đổi thứ tự hiển thị trên website.'
         }
         actions={
           <>
@@ -165,7 +179,7 @@ export function CategoryListPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: 78 }}>Thứ tự</th>
+                  <th style={{ width: 106 }}>Thứ tự</th>
                   <th style={{ width: 72 }}>Ảnh</th>
                   <th>Tên</th>
                   <th>Slug</th>
@@ -174,8 +188,17 @@ export function CategoryListPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((category) => (
-                  <tr key={category.id} className={category.id === newId ? 'row-new' : undefined}>
+                {visible.map((category) => {
+                  const row = drag.rowProps(category);
+                  return (
+                  <tr
+                    key={category.id}
+                    data-row-key={row['data-row-key']}
+                    className={
+                      [row.className, category.id === newId ? 'row-new' : ''].join(' ').trim() ||
+                      undefined
+                    }
+                  >
                     <td>
                       {/* Position is relative to the whole list, so the arrows
                           are driven by the row's real index. While filtering
@@ -186,6 +209,7 @@ export function CategoryListPage() {
                         total={list.length}
                         disabled={reorder.isPending || searching}
                         onMove={onMove}
+                        grip={drag.gripProps(category)}
                       />
                     </td>
                     {/* Round, because round is how this photo is drawn on the
@@ -247,7 +271,8 @@ export function CategoryListPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

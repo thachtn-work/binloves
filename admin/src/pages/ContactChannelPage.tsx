@@ -6,6 +6,8 @@ import { CONTACT_CHANNEL_TYPES } from '../lib/types';
 import type { ContactChannel } from '../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Field, Loading, PageHead } from '../components/ui';
 import { OrderButtons, moveItem } from '../components/OrderButtons';
+import { useRowDrag } from '../components/useRowDrag';
+import type { GripProps } from '../components/useRowDrag';
 import { usePublish } from '../publish/PublishProvider';
 
 const TYPE_LABEL = new Map<string, string>(CONTACT_CHANNEL_TYPES.map((t) => [t.value, t.label]));
@@ -78,11 +80,20 @@ export function ContactChannelPage() {
     if (next !== list) reorder.mutate(next.map((c) => c.id));
   }
 
+  // Nothing filters this list — at most eight channels, all on screen — so the
+  // grip is live whenever a previous move is not still saving.
+  const drag = useRowDrag(
+    list,
+    (c) => c.id,
+    (ids) => reorder.mutate(ids),
+    reorder.isPending,
+  );
+
   return (
     <>
       <PageHead
         title="Kênh liên hệ"
-        hint="Các cách khách liên lạc với bạn. Zalo là nút chính trên website. Dùng mũi tên để đổi thứ tự."
+        hint="Các cách khách liên lạc với bạn. Zalo là nút chính trên website. Kéo tay nắm đầu dòng, hoặc dùng mũi tên, để đổi thứ tự."
         actions={
           !adding && (
             <button type="button" className="btn btn--primary" onClick={() => setAdding(true)}>
@@ -122,6 +133,8 @@ export function ContactChannelPage() {
                 reordering={reorder.isPending}
                 onMove={onMove}
                 onDelete={() => setToDelete(channel)}
+                rowProps={drag.rowProps(channel)}
+                grip={drag.gripProps(channel)}
               />
             ))}
           </div>
@@ -148,6 +161,8 @@ function ChannelRow({
   reordering,
   onMove,
   onDelete,
+  rowProps,
+  grip,
 }: {
   channel: ContactChannel;
   index: number;
@@ -155,6 +170,8 @@ function ChannelRow({
   reordering: boolean;
   onMove: (from: number, to: number) => void;
   onDelete: () => void;
+  rowProps: { 'data-row-key': string; className: string };
+  grip: GripProps;
 }) {
   const queryClient = useQueryClient();
   const { notifyChange } = usePublish();
@@ -196,8 +213,17 @@ function ChannelRow({
   });
 
   return (
-    <div className="chanrow">
-      <OrderButtons index={index} total={total} disabled={reordering} onMove={onMove} />
+    <div
+      data-row-key={rowProps['data-row-key']}
+      className={`chanrow ${rowProps.className}`.trim()}
+    >
+      <OrderButtons
+        index={index}
+        total={total}
+        disabled={reordering}
+        onMove={onMove}
+        grip={grip}
+      />
 
       <span className="chanrow__name">{TYPE_LABEL.get(channel.type) ?? channel.type}</span>
 

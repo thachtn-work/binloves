@@ -836,20 +836,28 @@ h3 {
 
 /* ---------- Reordering by drag ---------- */
 
+/*
+  The grip sits in the Thứ tự cell beside the arrows, because that cell is
+  already where this row's position is decided and a second place to decide it
+  would only hide one of them.
+
+  Padding, not size: the icon is 15px, which is about a third of what a finger
+  aims at. The padding brings the target to roughly 23x23 without drawing
+  anything bigger.
+*/
 .draghandle {
-  display: inline-block;
-  color: var(--muted);
-  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
   cursor: grab;
   user-select: none;
-  font-size: 15px;
-  /* A finger needs something to aim at; the glyph alone is a few pixels. */
-  padding: 4px 6px;
-  margin-left: -6px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .draghandle:hover {
   color: var(--text);
+  background: var(--surface-sunken);
 }
 
 /* Only the grip drags now, so the row itself keeps a normal cursor and the
@@ -873,6 +881,17 @@ h3 {
 }
 
 .row-drop-after td {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/* The same line for rows that are not table rows — the channel list and the
+   chosen side of the collection picker, which are grids and flex rows. The
+   shadow goes on the row itself there, since there are no cells to put it on. */
+.row-drop-before:not(tr) {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.row-drop-after:not(tr) {
   box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 
@@ -1486,7 +1505,8 @@ h3 {
 /* Row ordering controls, replacing a hand-typed position number. */
 .order-cell {
   display: flex;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
 }
 
 /* ---------- Contact channels: one row per channel ---------- */
@@ -1501,7 +1521,7 @@ h3 {
    would sit one column out of step. */
 .chanrow {
   display: grid;
-  grid-template-columns: 52px 104px minmax(170px, 1.2fr) minmax(150px, 1fr) 48px 104px;
+  grid-template-columns: 80px 104px minmax(170px, 1.2fr) minmax(150px, 1fr) 48px 104px;
   align-items: center;
   gap: 12px;
   padding: 9px 0;

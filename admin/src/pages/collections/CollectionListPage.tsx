@@ -7,6 +7,7 @@ import type { Collection } from '../../lib/types';
 import { ConfirmDialog, Empty, ErrorAlert, Loading, PageHead, StatusTag } from '../../components/ui';
 import { MediaThumb } from '../../media/MediaThumb';
 import { OrderButtons, moveItem } from '../../components/OrderButtons';
+import { useRowDrag } from '../../components/useRowDrag';
 import { ListSearch } from '../../components/ListSearch';
 import { matchesSearch } from '../../lib/search';
 import { EditSurface } from '../../components/EditSurface';
@@ -121,6 +122,15 @@ export function CollectionListPage() {
     if (next !== list) reorder.mutate(next.map((c) => c.id));
   }
 
+  // Off while searching, like the arrows: a drop between two rows of a
+  // filtered table names no single position in the real order.
+  const drag = useRowDrag(
+    list,
+    (c) => c.id,
+    (ids) => reorder.mutate(ids),
+    reorder.isPending || searching,
+  );
+
   return (
     <>
       <PageHead
@@ -128,7 +138,7 @@ export function CollectionListPage() {
         hint={
           searching
             ? `${visible.length} kết quả cho “${search.trim()}”`
-            : 'Các khu vực sản phẩm trên trang chủ. Dùng mũi tên để đổi thứ tự khu vực.'
+            : 'Các khu vực sản phẩm trên trang chủ. Kéo tay nắm ở cột Thứ tự, hoặc dùng mũi tên, để đổi thứ tự khu vực.'
         }
         actions={
           <>
@@ -164,7 +174,7 @@ export function CollectionListPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: 78 }}>Thứ tự</th>
+                  <th style={{ width: 106 }}>Thứ tự</th>
                   <th style={{ width: 72 }}>Ảnh</th>
                   <th>Tên</th>
                   <th>Slug</th>
@@ -174,8 +184,17 @@ export function CollectionListPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((collection) => (
-                  <tr key={collection.id} className={collection.id === newId ? 'row-new' : undefined}>
+                {visible.map((collection) => {
+                  const row = drag.rowProps(collection);
+                  return (
+                  <tr
+                    key={collection.id}
+                    data-row-key={row['data-row-key']}
+                    className={
+                      [row.className, collection.id === newId ? 'row-new' : ''].join(' ').trim() ||
+                      undefined
+                    }
+                  >
                     <td>
                       {/* Index comes from the full list, and the arrows are
                           disabled while filtering — a move inside a filtered
@@ -185,6 +204,7 @@ export function CollectionListPage() {
                         total={list.length}
                         disabled={reorder.isPending || searching}
                         onMove={onMove}
+                        grip={drag.gripProps(collection)}
                       />
                     </td>
                     {/* Square rather than round: nothing on the website draws
@@ -234,7 +254,8 @@ export function CollectionListPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

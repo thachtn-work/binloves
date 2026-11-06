@@ -3,6 +3,33 @@ import { useEffect, useRef, useState } from 'react';
 type Edge = 'before' | 'after';
 type Target = { key: string; edge: Edge };
 
+/** What `gripProps` hands back: spread onto the thing the user grabs. */
+export type GripProps = {
+  onPointerDown: (event: React.PointerEvent) => void;
+  onPointerMove: (event: React.PointerEvent) => void;
+  onPointerUp: () => void;
+  onPointerCancel: () => void;
+  style: { touchAction: 'none'; opacity: number };
+  'aria-disabled': true | undefined;
+};
+
+/**
+ * The nearest ancestor that scrolls vertically, or null when only the page
+ * does. `clientHeight + 1` rather than `clientHeight` because sub-pixel
+ * heights make a box that does not scroll look like one that scrolls by a
+ * fraction of a pixel.
+ */
+function scrollableAncestor(start: Element | null): Element | null {
+  for (let node = start; node; node = node.parentElement) {
+    if (node === document.body || node === document.documentElement) break;
+    const overflowY = window.getComputedStyle(node).overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
+      return node;
+    }
+  }
+  return null;
+}
+
 /**
  * Row reordering by dragging a grip.
  *
@@ -66,11 +93,33 @@ export function useRowDrag<T>(
     let frame = 0;
 
     const step = () => {
-      const { y } = point.current;
-      const toTop = y - EDGE;
-      const toBottom = window.innerHeight - EDGE - y;
-      if (toTop < 0) window.scrollBy(0, Math.max(-SPEED, toTop / 5));
-      else if (toBottom < 0) window.scrollBy(0, Math.min(SPEED, -toBottom / 5));
+      const { x, y } = point.current;
+
+      /*
+        Scroll whatever the rows are actually inside.
+
+        The window is the right answer for a table on a page, and the wrong one
+        for the collection picker, whose chosen list is a 400px box with its
+        own scrollbar: there the page does not move at all, so a row could only
+        be dragged as far as the six or seven rows on screen. Falling back to
+        the window keeps every table behaving as before.
+      */
+      const box = scrollableAncestor(document.elementFromPoint(x, y));
+      if (box) {
+        const r = box.getBoundingClientRect();
+        // A short box needs a short trigger zone, or the two zones meet in the
+        // middle and the list scrolls wherever the pointer is.
+        const edge = Math.min(EDGE, r.height / 4);
+        const toTop = y - r.top - edge;
+        const toBottom = r.bottom - edge - y;
+        if (toTop < 0) box.scrollTop += Math.max(-SPEED, toTop / 5);
+        else if (toBottom < 0) box.scrollTop += Math.min(SPEED, -toBottom / 5);
+      } else {
+        const toTop = y - EDGE;
+        const toBottom = window.innerHeight - EDGE - y;
+        if (toTop < 0) window.scrollBy(0, Math.max(-SPEED, toTop / 5));
+        else if (toBottom < 0) window.scrollBy(0, Math.min(SPEED, -toBottom / 5));
+      }
 
       // Recomputed every frame, not only on pointermove: while the page
       // auto-scrolls under a stationary finger the row beneath it keeps
@@ -139,7 +188,7 @@ export function useRowDrag<T>(
 
     /** Spread onto the grip inside the row. Only the grip starts a drag, so
      *  the buttons in the row stay clickable and text stays selectable. */
-    gripProps(item: T) {
+    gripProps(item: T): GripProps {
       const key = keyOf(item);
       return {
         onPointerDown: (event: React.PointerEvent) => {
