@@ -21,18 +21,25 @@ const { contactChannels } = Astro.props;
 const DOCKED_TYPES = ['zalo', 'messenger', 'telegram', 'phone'];
 
 /*
-  One button per kind. A shop with two phone numbers was getting two identical
-  green discs stacked on top of each other — nothing on the screen said which
-  was which, so the pair read as a bug rather than a choice. The dock is for
-  reaching the shop the quickest way; the footer lists every number for anyone
-  who wants to pick.
+  Every channel gets its own button, including a second Zalo or a second
+  phone. Two identical discs would be indistinguishable, so each one in a
+  repeated kind carries a small number — the pair then reads as a choice
+  rather than a duplicate, which is what the earlier version collapsed them to
+  avoid.
+
+  The count is per kind, not across the dock: a shop with two Zalos and one
+  Telegram gets 1 and 2 on the Zalos and nothing on the Telegram. A lone
+  button wearing a "1" would be answering a question nobody asked.
 */
-const seen = new Set<string>();
-const docked = contactChannels.filter((c) => {
-  if (!DOCKED_TYPES.includes(c.type) || seen.has(c.type)) return false;
-  seen.add(c.type);
-  return true;
+const inDock = contactChannels.filter((c) => DOCKED_TYPES.includes(c.type));
+
+const perType = new Map<string, number>();
+const docked = inDock.map((channel) => {
+  const seat = (perType.get(channel.type) ?? 0) + 1;
+  perType.set(channel.type, seat);
+  return { channel, seat };
 });
+const totalOfType = new Map(perType);
 
 /*
   Each service's own colour, because these buttons stand for someone else's
@@ -57,7 +64,16 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
 {
   docked.length > 0 && (
     <nav class="dock" aria-label="Liên hệ nhanh">
-      {docked.map((channel, index) => (
+      {docked.map(({ channel, seat }, index) => {
+        const many = (totalOfType.get(channel.type) ?? 1) > 1;
+        /*
+          With two of a kind the screen reader needs to tell them apart as much
+          as the eye does, and the number alone would not ("Nhắn qua Zalo 2").
+          The owner's own label is the best name for it; failing that the value
+          itself, which for Zalo and phone is the number being dialled.
+        */
+        const which = many ? ` — ${channel.label?.trim() || channel.value}` : '';
+        return (
         <a
           class="dock-btn"
           href={channelHref(channel)}
@@ -67,7 +83,7 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
           aria-label={
             isCall(channel)
               ? `Gọi ${channel.value}`
-              : `Nhắn qua ${CHANNEL_LABELS[channel.type] ?? channel.type}`
+              : `Nhắn qua ${CHANNEL_LABELS[channel.type] ?? channel.type}${which}`
           }
         >
           {/* Drawn inline rather than loaded: four small glyphs cost less as
@@ -108,8 +124,16 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
               />
             </svg>
           )}
+          {/* aria-hidden: số này chỉ để mắt phân biệt hai nút giống nhau —
+              tên đầy đủ đã nằm trong aria-label của chính nút. */}
+          {many && (
+            <span class="dock-badge" aria-hidden="true">
+              {seat}
+            </span>
+          )}
         </a>
-      ))}
+        );
+      })}
     </nav>
   )
 }
@@ -132,6 +156,8 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
     these sit over a light ground and have to belong to it.
   */
   .dock-btn {
+    /* Mốc toạ độ cho .dock-badge ở góc dưới phải. */
+    position: relative;
     width: 52px;
     height: 52px;
     border-radius: 50%;
@@ -147,6 +173,33 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
   .dock-btn svg {
     width: 30px;
     height: 30px;
+  }
+
+  /*
+    Số nhỏ ở góc dưới phải, chỉ hiện khi một loại kênh có từ hai nút trở lên.
+
+    Nền trắng chữ đậm chứ không phải nền thương hiệu: nút phía sau đã mang màu
+    của Zalo hay Messenger rồi, và một con số cùng tông với cái đĩa nó nằm trên
+    thì không đọc được. Trắng thì đọc được trên cả bốn màu.
+  */
+  .dock-badge {
+    position: absolute;
+    inset-block-end: -2px;
+    inset-inline-end: -2px;
+    min-width: 17px;
+    height: 17px;
+    padding-inline: 4px;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--brand);
+    box-shadow: 0 1px 4px rgba(99, 112, 134, 0.45);
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    /* Số đi theo nút khi nút nhún lên, không nhún riêng. */
+    pointer-events: none;
   }
 
   /*
@@ -204,6 +257,17 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
     color: #fff;
   }
 
+  /*
+    Chế độ kín đáo rút hết màu thương hiệu khỏi nút, nên con số cũng phải theo
+    — một chấm trắng viền xanh Zalo nằm giữa mấy cái đĩa xám là đúng thứ chế
+    độ này sinh ra để giấu.
+  */
+  :root[data-discreet='on'] .dock-badge {
+    background: var(--card);
+    color: var(--text-soft);
+    box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--line-strong);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .dock-btn {
       animation: none;
@@ -211,15 +275,16 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
   }
 
   /*
-    Laid out along the bottom on a phone rather than down the side. A column
-    of four discs on the right edge sat over the right-hand column of products
-    for its whole height — on a two-column grid that is a quarter of every
-    screen permanently covered. A row hides a strip at the very bottom
-    instead, which is also where a thumb already is.
+    Still a column on a phone, by the shop's own choice. A row along the
+    bottom covers less of the grid, but it also sits where a thumb rests while
+    scrolling, and the buttons it holds all open something.
+
+    What a phone changes instead: the discs get smaller, so a column of them
+    takes less of the right edge — which matters more now that a shop with two
+    Zalos gets two buttons rather than one.
   */
   @media (max-width: 760px) {
     .dock {
-      flex-direction: row;
       inset-block-end: var(--space-3);
       inset-inline-end: var(--space-3);
       gap: var(--space-2);
@@ -235,10 +300,10 @@ const isCall = (channel: ContactChannel) => channel.type === 'phone';
       height: 26px;
     }
 
-    /* So the last thing on the page can still be scrolled out from under the
-       row — without this the footer's final line is unreachable. */
-    :global(body) {
-      padding-block-end: 70px;
+    .dock-badge {
+      min-width: 15px;
+      height: 15px;
+      font-size: 9px;
     }
   }
 </style>
