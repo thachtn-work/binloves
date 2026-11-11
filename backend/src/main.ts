@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AppModule } from './app.module';
+import { legacyUrls } from './legacy-urls';
 
 /*
   One process serves all three surfaces: the API, the admin SPA and the
@@ -100,6 +101,13 @@ async function bootstrap() {
 
   // ---- Landing ---------------------------------------------------------
   if (existsSync(landingEntry)) {
+    /*
+      Addresses the previous site issued, before anything tries to serve them.
+      It has to come first: /assets/images/ belongs to the old build and would
+      otherwise fall past the static mount and be answered as a missing page.
+    */
+    app.use(legacyUrls);
+
     // Hashed filenames, so these can be held for a year. Everything else in
     // the folder keeps its real name — the logo, the favicon, the contact
     // icons — and those are versioned by query string instead, so they get a
@@ -123,7 +131,23 @@ async function bootstrap() {
       // Pages are generated per request and the shop expects an edit to show
       // on the next load, so nothing in front of this may hold the HTML.
       res.setHeader('Cache-Control', 'no-cache');
-      handler(req, res, next);
+      /*
+        No `next` on purpose, and it is not a tidying-up.
+
+        Given one, the adapter hands any address it has no route for back to
+        Express — and on that path it never removes the `close` listener it
+        put on the socket to watch for the reader leaving (a bug in
+        @astrojs/node 9.5.5; upstream fixed it only in 11.1.8, which wants
+        Astro 7). One keep-alive socket carries many requests, so the
+        listeners pile up on it and Node starts printing
+        MaxListenersExceededWarning. Measured here: 2.000 unmatched requests
+        over one socket left 2.001 listeners and 17,9 MB held.
+
+        Withholding it also puts the shop's own 404 page back. Astro is the
+        last handler either way — /api/ left above, files served below — so
+        there was nothing left to hand back to.
+      */
+      handler(req, res);
     });
   } else {
     logger.warn('landing/dist chưa có — chỉ phục vụ API (bình thường khi chạy dev)');
