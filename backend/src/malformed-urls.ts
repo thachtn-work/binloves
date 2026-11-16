@@ -4,21 +4,20 @@ import type { NextFunction, Request, Response } from 'express';
   Addresses that cannot have come from a visitor, turned away before anything
   tries to make sense of them.
 
-  Two shapes arrive, both from vulnerability scanners:
+  What arrives, from vulnerability scanners:
 
     /%252e%252e%252fetc%252fpasswd   decoded once:  /%2e%2e%2fetc%2fpasswd
                                      decoded twice: /../etc/passwd
-    /%zz                             not a percent sequence at all
 
-  The first is the classic double-encoding trick. It works wherever a filter
+  This is the classic double-encoding trick. It works wherever a filter
   inspects the address and a later stage decodes it again: the filter sees no
   dot and no slash, waves it through, and the stage after that uncovers the
   `../`. The defence is not to decode further until it looks clean — that is
   the bug, not the fix — but to refuse anything still encoded after one pass,
   which is what this does.
 
-  Astro already refuses to route either shape, so nothing here changes what a
-  request is answered with. What it changes is where the refusal happens.
+  Astro already refuses to route it, so nothing here changes what a request
+  is answered with. What it changes is where the refusal happens.
   Left alone, the request travels the whole way to the renderer, which builds
   the shop's 404 page — 9 KB of catalogue markup for a bot that reads none of
   it — and writes a line to the error log on the way. One scanner sweep puts
@@ -41,8 +40,15 @@ function stillEncodedAfterOnePass(pathname: string): boolean {
   try {
     decoded = decodeURI(pathname);
   } catch {
-    // A stray `%` or a truncated sequence. No address this shop issued can
-    // fail to decode, so there is nothing to look up.
+    /*
+      A stray `%` or a truncated sequence, such as /%zz or /abc%. Measured
+      against production, nothing of this shape reaches the process: the edge
+      in front answers it 400 over HTTP/1.1 and drops the stream over HTTP/2,
+      and the error log bears that out — it only ever held the multi-level
+      case above, never the invalid-encoding one. Kept because the rule is
+      the same either way and an edge is not a thing to depend on: no address
+      this shop issued can fail to decode, so there is nothing to look up.
+    */
     return true;
   }
   // Both halves matter. An address with nothing to decode is ordinary, and so
