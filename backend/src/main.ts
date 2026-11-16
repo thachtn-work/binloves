@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AppModule } from './app.module';
 import { legacyUrls } from './legacy-urls';
+import { rejectMalformedUrls } from './malformed-urls';
 
 /*
   One process serves all three surfaces: the API, the admin SPA and the
@@ -31,6 +32,13 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  /*
+    First of everything. An address that cannot be decoded is not one to
+    redirect, serve a file for, or look up a page by — the www redirect below
+    would otherwise dutifully reissue the scanner's own payload back at it.
+  */
+  app.use(rejectMalformedUrls);
 
   /*
     ---- One address per page ---------------------------------------------
