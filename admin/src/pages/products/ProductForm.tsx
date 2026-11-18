@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { Category, Product } from '../../lib/types';
@@ -123,7 +122,6 @@ export function valuesToPayload(values: ProductFormValues) {
 
   return {
     name: values.name.trim(),
-    slug: values.slug.trim(),
     description: values.description.trim() || undefined,
     price: variants ? null : values.price === '' ? undefined : Number(values.price),
     salePrice,
@@ -154,13 +152,16 @@ export function valuesToPayload(values: ProductFormValues) {
 interface Props {
   values: ProductFormValues;
   onChange: (values: ProductFormValues) => void;
-  /** True while editing: the slug is a live URL and shouldn't silently move. */
+  /**
+   * True while editing an existing product, whose address is already in
+   * circulation: show the one it has rather than the one its current name
+   * would produce, because the two stop agreeing the moment the name is
+   * edited and only the stored one is real.
+   */
   lockSlug?: boolean;
 }
 
 export function ProductForm({ values, onChange, lockSlug = false }: Props) {
-  const [slugTouched, setSlugTouched] = useState(lockSlug);
-
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => (await api.get<Category[]>('/categories')).data,
@@ -168,12 +169,6 @@ export function ProductForm({ values, onChange, lockSlug = false }: Props) {
 
   function set<K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) {
     onChange({ ...values, [key]: value });
-  }
-
-  function onNameChange(name: string) {
-    // Auto-fill the slug while it's untouched, so the shop owner never has to
-    // think about URLs — but stop the moment they edit it themselves.
-    onChange({ ...values, name, slug: slugTouched ? values.slug : slugify(name) });
   }
 
   const variants = hasVariants(values);
@@ -197,29 +192,14 @@ export function ProductForm({ values, onChange, lockSlug = false }: Props) {
           <input
             className="input"
             value={values.name}
-            onChange={(e) => onNameChange(e.target.value)}
+            onChange={(e) => set('name', e.target.value)}
             required
             autoFocus={!lockSlug}
           />
         </Field>
 
-        <Field
-          label="Đường dẫn"
-          hint={
-            lockSlug
-              ? 'Đổi đường dẫn sẽ làm hỏng các liên kết cũ đã chia sẻ cho khách.'
-              : 'Tự điền theo tên. Chỉ dùng chữ thường, số và dấu gạch ngang.'
-          }
-        >
-          <input
-            className="input"
-            value={values.slug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              set('slug', e.target.value);
-            }}
-            required
-          />
+        <Field label="Đường dẫn">
+          <input className="input" value={lockSlug ? values.slug : slugify(values.name)} readOnly />
         </Field>
 
         <Field label="Danh mục">

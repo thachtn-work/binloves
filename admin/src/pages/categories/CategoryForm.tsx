@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Field, Fieldset, slugify } from '../../components/ui';
 import { MediaPicker } from '../../media/MediaPicker';
 import type { Category } from '../../lib/types';
@@ -27,7 +26,6 @@ export function categoryToValues(category: Category): CategoryFormValues {
 export function categoryPayload(values: CategoryFormValues) {
   return {
     name: values.name.trim(),
-    slug: values.slug.trim(),
     isActive: values.isActive,
     coverMediaId: values.coverMediaId,
   };
@@ -42,8 +40,6 @@ export function CategoryForm({
   onChange: (values: CategoryFormValues) => void;
   lockSlug?: boolean;
 }) {
-  const [slugTouched, setSlugTouched] = useState(lockSlug);
-
   function set<K extends keyof CategoryFormValues>(key: K, value: CategoryFormValues[K]) {
     onChange({ ...values, [key]: value });
   }
@@ -55,35 +51,14 @@ export function CategoryForm({
           <input
             className="input"
             value={values.name}
-            onChange={(e) =>
-              onChange({
-                ...values,
-                name: e.target.value,
-                slug: slugTouched ? values.slug : slugify(e.target.value),
-              })
-            }
+            onChange={(e) => set('name', e.target.value)}
             required
             autoFocus
           />
         </Field>
 
-        <Field
-          label="Đường dẫn"
-          hint={
-            lockSlug
-              ? 'Đổi đường dẫn sẽ làm hỏng các liên kết cũ đã chia sẻ cho khách.'
-              : 'Tự điền theo tên danh mục.'
-          }
-        >
-          <input
-            className="input"
-            value={values.slug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              set('slug', e.target.value);
-            }}
-            required
-          />
+        <Field label="Đường dẫn">
+          <input className="input" value={lockSlug ? values.slug : slugify(values.name)} readOnly />
         </Field>
       </Fieldset>
 

@@ -134,14 +134,33 @@ export function formatPrice(value: string | null) {
   return `${new Intl.NumberFormat('vi-VN').format(Number(value))}đ`;
 }
 
-// Vietnamese-aware slug: strips diacritics so "Đồ chơi" becomes "do-choi"
-// instead of an empty string.
+/*
+  A preview of the address a new row will be given, shown while the owner is
+  still typing its name. Vietnamese-aware: NFD splits a letter from its tone
+  mark so the mark can be dropped, and `đ` is replaced outright because no
+  amount of decomposing turns it into a `d`.
+
+  The server decides the real address — backend/src/common/slug.ts, which
+  holds the same rules plus the part this cannot do, which is settling ties
+  between two products of the same name. Keep the two in step; where they
+  disagree, what comes back from the save is the truth, and the form shows
+  that from then on.
+*/
 export function slugify(input: string) {
-  return input
+  const base = input
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/đ/g, 'd')
+    // Any run of what is left — a space, a comma, an en dash, an emoji — ends
+    // a word, and a run of them ends one word, not several.
     .replace(/[^a-z0-9]+/g, '-')
+    // After collapsing, never before: a name opening with an emoji opens with
+    // a separator, and an address may not begin or end with one.
     .replace(/^-+|-+$/g, '');
+
+  if (base.length <= 90) return base;
+  const cut = base.slice(0, 90);
+  const boundary = cut.lastIndexOf('-');
+  return (boundary > 0 ? cut.slice(0, boundary) : cut).replace(/-+$/, '');
 }

@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -15,11 +14,13 @@ export class CreateCategoryDto {
   @MaxLength(160)
   name: string;
 
-  @IsString()
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'slug chỉ được chứa chữ thường, số và dấu gạch ngang',
-  })
-  slug: string;
+  /*
+    No slug. The address is derived from the name by common/slug.ts when the
+    row is created, and never changes afterwards — a live URL that moves on
+    its own breaks every link already shared for it. Sending one is refused
+    outright rather than ignored, so a client that still thinks it decides
+    addresses is told so instead of watching its value vanish.
+  */
 
   @IsOptional()
   @IsBoolean()

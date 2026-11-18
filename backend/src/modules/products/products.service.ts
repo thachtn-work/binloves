@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { CONTENT_CHANGED_EVENT } from '../../common/events/content-changed.event';
 import { withUniqueSlug } from '../../common/prisma/unique-slug';
+import { freeSlug, slugify } from '../../common/slug';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProductDto, ProductVariantDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -55,10 +56,13 @@ export class ProductsService {
     this.assertOptionImages(dto);
     this.assertSaleWindow(dto);
 
+    const slug = await this.freeProductSlug(dto.name);
+
     const product = await withUniqueSlug('sản phẩm', () =>
       this.prisma.product.create({
         data: {
           ...data,
+          slug,
           media: mediaIds?.length
             ? { create: mediaIds.map((mediaId, index) => ({ mediaId, sortOrder: index })) }
             : undefined,
@@ -73,6 +77,24 @@ export class ProductsService {
 
     this.events.emit(CONTENT_CHANGED_EVENT);
     return product;
+  }
+
+  /*
+    The address this product will answer at, settled before the row exists.
+
+    Derived from the name rather than supplied: see common/slug.ts. Asked of
+    the table once, with the base as a prefix, so two products genuinely
+    called the same thing get `...` and `...-2` without the owner being shown
+    a conflict over a field they cannot edit.
+  */
+  private freeProductSlug(name: string) {
+    return freeSlug(slugify(name, 'san-pham'), async (prefix) => {
+      const rows = await this.prisma.product.findMany({
+        where: { slug: { startsWith: prefix } },
+        select: { slug: true },
+      });
+      return rows.map((r) => r.slug);
+    });
   }
 
   async update(id: string, dto: UpdateProductDto) {

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Field, Fieldset, slugify } from '../../components/ui';
 import { MediaPicker } from '../../media/MediaPicker';
 import type { Collection } from '../../lib/types';
@@ -29,7 +28,6 @@ export function collectionToValues(collection: Collection): CollectionFormValues
 export function collectionPayload(values: CollectionFormValues) {
   return {
     name: values.name.trim(),
-    slug: values.slug.trim(),
     description: values.description.trim() || undefined,
     isActive: values.isActive,
     coverMediaId: values.coverMediaId,
@@ -45,8 +43,6 @@ export function CollectionForm({
   onChange: (values: CollectionFormValues) => void;
   lockSlug?: boolean;
 }) {
-  const [slugTouched, setSlugTouched] = useState(lockSlug);
-
   function set<K extends keyof CollectionFormValues>(key: K, value: CollectionFormValues[K]) {
     onChange({ ...values, [key]: value });
   }
@@ -61,31 +57,14 @@ export function CollectionForm({
           <input
             className="input"
             value={values.name}
-            onChange={(e) =>
-              onChange({
-                ...values,
-                name: e.target.value,
-                slug: slugTouched ? values.slug : slugify(e.target.value),
-              })
-            }
+            onChange={(e) => set('name', e.target.value)}
             required
             autoFocus
           />
         </Field>
 
-        <Field
-          label="Đường dẫn"
-          hint={lockSlug ? 'Đổi đường dẫn sẽ làm hỏng các liên kết cũ.' : 'Tự điền theo tên.'}
-        >
-          <input
-            className="input"
-            value={values.slug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              set('slug', e.target.value);
-            }}
-            required
-          />
+        <Field label="Đường dẫn">
+          <input className="input" value={lockSlug ? values.slug : slugify(values.name)} readOnly />
         </Field>
 
         <Field label="Mô tả ngắn" hint="Hiển thị dưới tiêu đề khu vực trên trang chủ.">

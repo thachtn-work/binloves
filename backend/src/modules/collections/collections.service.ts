@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { CONTENT_CHANGED_EVENT } from '../../common/events/content-changed.event';
 import { withUniqueSlug } from '../../common/prisma/unique-slug';
+import { freeSlug, slugify } from '../../common/slug';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { SetCollectionProductsDto } from './dto/set-collection-products.dto';
@@ -69,7 +70,11 @@ export class CollectionsService {
       this.prisma.collection.create({
         // See CategoriesService.create — new rows append instead of all
         // claiming position 0.
-        data: { ...dto, sortOrder: dto.sortOrder ?? (await this.nextSortOrder()) },
+        data: {
+          ...dto,
+          slug: await this.freeCollectionSlug(dto.name),
+          sortOrder: dto.sortOrder ?? (await this.nextSortOrder()),
+        },
       }),
     );
     this.events.emit(CONTENT_CHANGED_EVENT);
@@ -84,6 +89,18 @@ export class CollectionsService {
     );
     this.events.emit(CONTENT_CHANGED_EVENT);
     return collection;
+  }
+
+  // Derived from the name, settled before the row exists — see
+  // common/slug.ts and ProductsService.freeProductSlug.
+  private freeCollectionSlug(name: string) {
+    return freeSlug(slugify(name, 'bo-suu-tap'), async (prefix) => {
+      const rows = await this.prisma.collection.findMany({
+        where: { slug: { startsWith: prefix } },
+        select: { slug: true },
+      });
+      return rows.map((r) => r.slug);
+    });
   }
 
   async remove(id: string) {

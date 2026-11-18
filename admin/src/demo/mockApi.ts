@@ -1,4 +1,5 @@
 import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { slugify } from '../components/ui';
 import type {
   Banner,
   Category,
@@ -400,7 +401,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
   if (resource === 'categories') return crud(config, method, a, db.categories, (dto) => ({
     id: uid(),
     name: dto.name,
-    slug: dto.slug,
+    slug: slugify(dto.name),
     isActive: dto.isActive ?? true,
     sortOrder: dto.sortOrder ?? 0,
     coverMediaId: dto.coverMediaId ?? null,
@@ -448,7 +449,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       const product: Product = {
         id,
         name: dto.name,
-        slug: dto.slug,
+        slug: slugify(dto.name),
         description: dto.description ?? null,
         price: dto.price != null ? String(dto.price) : null,
         salePrice: dto.salePrice != null ? String(dto.salePrice) : null,
@@ -522,7 +523,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       const collection: Collection = {
         id: uid(),
         name: dto.name,
-        slug: dto.slug,
+        slug: slugify(dto.name),
         description: dto.description ?? null,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,

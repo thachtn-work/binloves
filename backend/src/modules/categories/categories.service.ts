@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CONTENT_CHANGED_EVENT } from '../../common/events/content-changed.event';
 import { withUniqueSlug } from '../../common/prisma/unique-slug';
+import { freeSlug, slugify } from '../../common/slug';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -38,7 +39,11 @@ export class CategoriesService {
         // Ordering is managed from the list, so the form sends no position.
         // Append rather than defaulting to 0, which would tie every new row
         // for first place and make the order look random.
-        data: { ...dto, sortOrder: dto.sortOrder ?? (await this.nextSortOrder()) },
+        data: {
+          ...dto,
+          slug: await this.freeCategorySlug(dto.name),
+          sortOrder: dto.sortOrder ?? (await this.nextSortOrder()),
+        },
         include: { cover: true },
       }),
     );
@@ -56,6 +61,18 @@ export class CategoriesService {
     );
     this.events.emit(CONTENT_CHANGED_EVENT);
     return category;
+  }
+
+  // Derived from the name, settled before the row exists — see
+  // common/slug.ts and ProductsService.freeProductSlug.
+  private freeCategorySlug(name: string) {
+    return freeSlug(slugify(name, 'danh-muc'), async (prefix) => {
+      const rows = await this.prisma.category.findMany({
+        where: { slug: { startsWith: prefix } },
+        select: { slug: true },
+      });
+      return rows.map((r) => r.slug);
+    });
   }
 
   async remove(id: string) {

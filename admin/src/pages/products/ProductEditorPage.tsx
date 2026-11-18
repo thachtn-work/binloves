@@ -39,10 +39,7 @@ export function ProductEditorPage({ mode }: { mode: 'create' | 'edit' }) {
     painted an empty form, then a moment later the product arrived and the
     fields filled themselves. Measured here, that moment was over a second —
     long enough for the owner to click Sửa, start typing the new price, and
-    have it wiped out from under them when the real values landed. The form
-    also refused to submit while it lasted, because the slug field was empty
-    and required, so the first click on Lưu did nothing at all and said
-    nothing about why.
+    have it wiped out from under them when the real values landed.
   */
   const [values, setValues] = useState<ProductFormValues>(() => {
     if (mode === 'create') return emptyProduct();
