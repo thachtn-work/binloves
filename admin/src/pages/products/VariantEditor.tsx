@@ -451,14 +451,14 @@ export function VariantEditor({
                         >
                           <td>{row.option1Value}</td>
                           {secondGroup && <td>{row.option2Value}</td>}
-                        {/* step="any": the browser does not get to decide
-                            what a price may end in. See ProductForm. */}
+                        {/* step="1", not a round 1000: prices here end in
+                            999 as often as in 000. See ProductForm. */}
                           <td>
                             <input
                               className="input"
                               type="number"
                               min="0"
-                              step="any"
+                              step="1"
                               value={row.price}
                               onChange={(e) => patchRow(index, { price: e.target.value })}
                             />
@@ -468,7 +468,7 @@ export function VariantEditor({
                               className="input"
                               type="number"
                               min="0"
-                              step="any"
+                              step="1"
                               value={row.salePrice}
                               aria-invalid={saleTooHigh}
                               title={saleTooHigh ? 'Giá khuyến mãi phải nhỏ hơn giá gốc.' : undefined}
@@ -503,7 +503,7 @@ export function VariantEditor({
                   className="input"
                   type="number"
                   min="0"
-                  step="any"
+                  step="1"
                   value={bulk}
                   placeholder="Giá áp cho tất cả"
                   onChange={(e) => setBulk(e.target.value)}
