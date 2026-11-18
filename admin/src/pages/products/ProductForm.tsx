@@ -255,18 +255,17 @@ export function ProductForm({ values, onChange, lockSlug = false }: Props) {
         {!variants && (
         <div className="grid2">
 {/*
-            step="1" rather than a round 1000. A number input refuses any value
-            off its step, and this shop prices in 999 endings — 195 of the 366
-            prices live today are not multiples of 1000 — so a 1000 step made
-            the browser reject the product's own stored price and block the
-            form on fields the owner had not touched.
+            step="any" so the browser never second-guesses a price. A number
+            input refuses any value off its step, and a step of 1000 — or of 1
+            — is the form deciding what a price may end in. The owner types the
+            number they sell at; the server is the only thing that judges it.
           */}
           <Field label="Giá gốc (đ)">
             <input
               className="input"
               type="number"
               min="0"
-              step="1"
+              step="any"
               value={values.price}
               onChange={(e) => set('price', e.target.value)}
             />
@@ -281,7 +280,7 @@ export function ProductForm({ values, onChange, lockSlug = false }: Props) {
               className="input"
               type="number"
               min="0"
-              step="1"
+              step="any"
               value={values.salePrice}
               onChange={(e) => set('salePrice', e.target.value)}
               aria-invalid={saleTooHigh}
